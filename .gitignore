@@ -1,0 +1,18 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE settings
+.vscode/
+.idea/
+
+# Work log (daily entries excluded, README.md and .gitkeep are tracked)
+worklog/*.md
+!worklog/README.md
+worklog/*.txt
+worklog/summaries/
