@@ -9,8 +9,8 @@ Designed for reproducible testnet experiments, educational workflows, and script
 **v0.1.1** — Stable foundation release.  
 Core utilities actively used in my Taproot engineering work and on-chain experiments.
 
-**v0.2.0** — Core features complete and verified.  
-Taproot-native API with all 5 spend paths tested on testnet. See [DESIGN.md](./DESIGN.md) for architecture.
+**v0.2.0** — Core Taproot spend-path prototype implemented and testnet-verified.  
+All 5 spend paths working with real transactions. Next: hardening, PSBT support, and comprehensive documentation. See [DESIGN.md](./DESIGN.md) for roadmap.
 
 ## Features
 
@@ -24,9 +24,9 @@ Production-tested on testnet with real transactions:
 - Broadcast to Blockstream / Mempool endpoints
 - Developer helpers (`WIFKey`, `quick_transfer`)
 
-### Available Now (v0.2.0)
+### Available Now (v0.2.0 - Prototype)
 
-Verified on testnet with real transactions (23 tests, all passing):
+Testnet-verified with real transactions (23 tests, all passing):
 
 - Declarative Taproot tree builder (`.hashlock()`, `.multisig()`, `.timelock()`, `.checksig()`)
 - Script-path and key-path spend constructors
