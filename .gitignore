@@ -12,6 +12,7 @@ dist/
 .idea/
 
 # Work log (completely excluded from git)
+# Includes: daily logs, notes, summaries
 worklog/
 # Backup files
 *备份*
