@@ -144,7 +144,7 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
 ## Notes
 
 - **Testnet Only**: This toolkit is designed for testnet use. Mainnet support may be added in future versions.
-- **v0.2.0 Status**: Core Taproot features are complete and verified. All 5 spend paths tested with real testnet transactions.
+- **v0.2.0 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
 
 ## Author
 
