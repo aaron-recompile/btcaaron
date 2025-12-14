@@ -13,3 +13,15 @@ dist/
 
 # Work log (completely excluded from git)
 worklog/
+# Backup files
+*备份*
+*copy*
+*.bak
+
+# Debug scripts
+debug_*.py
+
+# Cache
+__pycache__/
+*.pyc
+
