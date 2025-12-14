@@ -72,7 +72,7 @@ VERIFIED_TXS = {
         "url": "https://mempool.space/testnet/tx/63f444792332bcb173975fa2cf4d88a2620bc47b9d434768bf23477667f963b4",
     },
     "csv_timelock": {
-        "txid": None,  # Pending - requires 2 block confirmations
+        "txid": "dc48b4b9122b59a92d96dda21796b598e1e1b45388c17b3fd42b7c01dba3a122",
         "input_txid": "3ff99c8eaf9b9e2f42016f2b4c7659e11c8dcb4dc36f24ed7288a63b04c308f0",
         "input_vout": 1,
         "input_sats": 2666,
@@ -80,7 +80,7 @@ VERIFIED_TXS = {
         "fee": 500,
         "signer": "bob",
         "blocks": 2,
-        "note": "Requires 2 block confirmations before broadcast",
+        "url": "https://mempool.space/testnet/tx/dc48b4b9122b59a92d96dda21796b598e1e1b45388c17b3fd42b7c01dba3a122",
     },
 }
 
@@ -354,6 +354,19 @@ class TestVerifiedTransactions:
             .from_utxo(info["input_txid"], info["input_vout"], sats=info["input_sats"])
             .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", info["output_sats"])
             .sign(keys["alice"])
+            .build())
+        
+        assert tx.txid == info["txid"]
+        assert tx.fee == info["fee"]
+    
+    def test_csv_txid_match(self, program, keys):
+        """CSV timelock transaction should produce exact TXID"""
+        info = VERIFIED_TXS["csv_timelock"]
+        
+        tx = (program.spend("csv")
+            .from_utxo(info["input_txid"], info["input_vout"], sats=info["input_sats"])
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", info["output_sats"])
+            .sign(keys["bob"])
             .build())
         
         assert tx.txid == info["txid"]
