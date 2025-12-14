@@ -1,10 +1,10 @@
 """
-btcaaron Test Suite
+btcaaron v0.2.0 Test Suite
 
 This file contains both unit tests and integration tests with
 real testnet transaction records for verification.
 
-Run with: pytest tests/test_taproot.py -v
+Run with: pytest tests/test_btcaaron_v0.2.py -v
 """
 
 import pytest
