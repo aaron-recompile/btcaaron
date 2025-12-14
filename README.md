@@ -9,8 +9,8 @@ Designed for reproducible testnet experiments, educational workflows, and script
 **v0.1.1** — Stable foundation release.  
 Core utilities actively used in my Taproot engineering work and on-chain experiments.
 
-**v0.2.0** — Under active development.  
-See [DESIGN.md](./DESIGN.md) for architecture and roadmap.
+**v0.2.0** — Core features complete and verified.  
+Taproot-native API with all 5 spend paths tested on testnet. See [DESIGN.md](./DESIGN.md) for architecture.
 
 ## Features
 
@@ -24,12 +24,15 @@ Production-tested on testnet with real transactions:
 - Broadcast to Blockstream / Mempool endpoints
 - Developer helpers (`WIFKey`, `quick_transfer`)
 
-### Coming Next (v0.2.x)
+### Available Now (v0.2.0)
 
-- Declarative Taproot tree builder (`.hashlock()`, `.multisig()`, `.timelock()`)
+Verified on testnet with real transactions (23 tests, all passing):
+
+- Declarative Taproot tree builder (`.hashlock()`, `.multisig()`, `.timelock()`, `.checksig()`)
 - Script-path and key-path spend constructors
 - Automatic witness construction and signature ordering
-- Built-in `.explain()` for educational use
+- All 5 spend paths verified: hashlock, multisig, checksig, CSV timelock, keypath
+- Real transaction TXID reproduction tests
 
 ### Future (v0.3.x+)
 
@@ -74,9 +77,9 @@ if balance > 1000:
     print("Broadcasted:", txid)
 ```
 
-## Upcoming API Direction
+## v0.2.0 API Example
 
-*Preview of the v0.2.x API — under development.*
+*Taproot-native API — core features available now.*
 
 ```python
 from btcaaron import Key, TapTree
@@ -112,10 +115,14 @@ Run the test suite:
 python -m pytest tests/
 ```
 
-Or use the example-based test runner:
+Run specific test suites:
 
 ```bash
-python tests/test_btcaaron.py
+# v0.2.0 comprehensive tests (pytest)
+python -m pytest tests/test_btcaaron_v0.2.py -v
+
+# v0.1.x example-based tests
+python tests/test_btcaaron_v0.1.py
 ```
 
 ## Project Structure
@@ -137,7 +144,7 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
 ## Notes
 
 - **Testnet Only**: This toolkit is designed for testnet use. Mainnet support may be added in future versions.
-- **Experimental**: v0.2.x features are under active development and APIs may change.
+- **v0.2.0 Status**: Core Taproot features are complete and verified. All 5 spend paths tested with real testnet transactions.
 
 ## Author
 
