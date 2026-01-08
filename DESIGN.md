@@ -2,7 +2,7 @@
 
 > **Version**: 1.0.0-draft  
 > **Status**: In Development  
-> **Last Updated**: 2025-12
+> **Last Updated**: 2026-01
 
 ## Vision
 
@@ -188,10 +188,10 @@ btcaaron/
 
 ### Phase 1: Core Foundation (Month 1-2)
 - [x] Architecture design
-- [ ] `Key` class implementation
-- [ ] `TapTree` builder with semantic leaf methods
-- [ ] `TaprootProgram` with address generation
-- [ ] Milestone: Generate correct 4-leaf Taproot address
+- [x] `Key` class implementation
+- [x] `TapTree` builder with semantic leaf methods
+- [x] `TaprootProgram` with address generation
+- [x] Milestone: Generate correct 4-leaf Taproot address
 
 ### Phase 2: Spending Paths (Month 2-3)
 - [ ] `SpendBuilder` core structure
