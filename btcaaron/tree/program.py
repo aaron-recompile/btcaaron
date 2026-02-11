@@ -183,8 +183,20 @@ class TaprootProgram:
     def visualize(self) -> str:
         if self.num_leaves == 0:
             return "TaprootProgram (key-path only, no scripts)"
+        labels = self.leaves
+        if self.num_leaves == 1:
+            return f"""
+  Taproot
+    |
+[{labels[0]}]
+"""
+        if self.num_leaves == 2:
+            return f"""
+    Merkle Root
+   /            \\
+[{labels[0]}]        [{labels[1]}]
+"""
         if self.num_leaves == 4:
-            labels = self.leaves
             return f"""
         Merkle Root
        /            \\

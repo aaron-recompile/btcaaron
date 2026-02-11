@@ -199,6 +199,88 @@ class TestTapTree:
 
 
 # ============================================================================
+# Unit Tests - 2-Leaf TapTree
+# ============================================================================
+
+class TestTwoLeafTree:
+    """Test 2-leaf Taproot tree (hashlock + multisig)"""
+
+    @pytest.fixture
+    def keys(self):
+        return {
+            "alice": Key.from_wif(ALICE_WIF),
+            "bob": Key.from_wif(BOB_WIF),
+        }
+
+    @pytest.fixture
+    def program(self, keys):
+        """Build a 2-leaf program: hashlock + 2-of-2 multisig"""
+        return (TapTree(internal_key=keys["alice"])
+            .hashlock("mysecret", label="hash")
+            .multisig(2, [keys["alice"], keys["bob"]], label="2of2")
+        ).build()
+
+    def test_address_is_valid(self, program):
+        """2-leaf tree should produce a valid tb1p address"""
+        assert program.address.startswith("tb1p")
+        assert len(program.address) == 62
+
+    def test_leaf_count(self, program):
+        """Should have 2 leaves"""
+        assert program.num_leaves == 2
+
+    def test_leaf_labels(self, program):
+        """Leaves should be hash and 2of2"""
+        assert program.leaves == ["hash", "2of2"]
+
+    def test_leaf_types(self, program):
+        """Each leaf should have correct script type"""
+        assert program.leaf("hash").script_type == "HASHLOCK"
+        assert program.leaf("2of2").script_type == "MULTISIG"
+
+    def test_visualize(self, program):
+        """Visualize should show 2-leaf tree"""
+        viz = program.visualize()
+        assert "Merkle Root" in viz
+        assert "[hash]" in viz
+        assert "[2of2]" in viz
+
+    def test_hashlock_spend(self, program):
+        """Hashlock spend should build on 2-leaf tree"""
+        tx = (program.spend("hash")
+            .from_utxo("a" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .unlock(preimage="mysecret")
+            .build())
+
+        assert tx.hex is not None
+        assert len(tx.txid) == 64
+        assert tx.fee == 500
+
+    def test_multisig_spend(self, program, keys):
+        """Multisig spend should build on 2-leaf tree"""
+        tx = (program.spend("2of2")
+            .from_utxo("b" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .sign(keys["alice"], keys["bob"])
+            .build())
+
+        assert tx.hex is not None
+        assert tx.fee == 500
+
+    def test_keypath_spend(self, program, keys):
+        """Key-path spend should also work on 2-leaf tree"""
+        tx = (program.keypath()
+            .from_utxo("c" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .sign(keys["alice"])
+            .build())
+
+        assert tx.hex is not None
+        assert tx.fee == 500
+
+
+# ============================================================================
 # Unit Tests - SpendBuilder
 # ============================================================================
 
@@ -369,6 +451,80 @@ class TestVerifiedTransactions:
             .sign(keys["bob"])
             .build())
         
+        assert tx.txid == info["txid"]
+        assert tx.fee == info["fee"]
+
+
+# ============================================================================
+# Integration Tests - 2-Leaf Verified Transactions
+# ============================================================================
+
+TWO_LEAF_VERIFIED_TXS = {
+    "hashlock": {
+        "txid": "9e2767bd0df1b6a1cbb7d389cea29f5031dd0a064c89688e1348ca48c2e199ac",
+        "input_txid": "5cb673175a28dd0750f18cdfd8323418630f8edf2f08c773fc64a563362290a5",
+        "input_vout": 1,
+        "input_sats": 3000,
+        "output_sats": 2500,
+        "fee": 500,
+        "preimage": "mysecret2026",
+    },
+    "multisig": {
+        "txid": "e17afe675d83e42480d25255e3b86b271f5a0ad5e8b0d64fd5409c60840263e7",
+        "input_txid": "b892a615409762b5f1893bafd43a2286b60ca79511478501ef743fcbeaa79c15",
+        "input_vout": 0,
+        "input_sats": 2888,
+        "output_sats": 2388,
+        "fee": 500,
+    },
+}
+
+DEST_ADDRESS = "tb1p060z97qusuxe7w6h8z0l9kam5kn76jur22ecel75wjlmnkpxtnls6vdgne"
+
+
+class TestTwoLeafVerifiedTransactions:
+    """
+    Verify exact TXID reproduction for 2-leaf Taproot tree transactions.
+    These transactions were broadcast to testnet on 2026-02-10.
+    """
+
+    @pytest.fixture
+    def keys(self):
+        return {
+            "alice": Key.from_wif(ALICE_WIF),
+            "bob": Key.from_wif(BOB_WIF),
+        }
+
+    @pytest.fixture
+    def program(self, keys):
+        return (TapTree(internal_key=keys["alice"])
+            .hashlock("mysecret2026", label="hash")
+            .multisig(2, [keys["alice"], keys["bob"]], label="2of2")
+        ).build()
+
+    def test_two_leaf_hashlock_txid_match(self, program):
+        """2-leaf hashlock transaction should produce exact TXID"""
+        info = TWO_LEAF_VERIFIED_TXS["hashlock"]
+
+        tx = (program.spend("hash")
+            .from_utxo(info["input_txid"], info["input_vout"], sats=info["input_sats"])
+            .to(DEST_ADDRESS, info["output_sats"])
+            .unlock(preimage=info["preimage"])
+            .build())
+
+        assert tx.txid == info["txid"]
+        assert tx.fee == info["fee"]
+
+    def test_two_leaf_multisig_txid_match(self, program, keys):
+        """2-leaf multisig transaction should produce exact TXID"""
+        info = TWO_LEAF_VERIFIED_TXS["multisig"]
+
+        tx = (program.spend("2of2")
+            .from_utxo(info["input_txid"], info["input_vout"], sats=info["input_sats"])
+            .to(DEST_ADDRESS, info["output_sats"])
+            .sign(keys["alice"], keys["bob"])
+            .build())
+
         assert tx.txid == info["txid"]
         assert tx.fee == info["fee"]
 
