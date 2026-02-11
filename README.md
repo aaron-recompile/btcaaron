@@ -1,4 +1,4 @@
-# btcaaron&nbsp;<img src="images/mark.png" width="52" alt="btcaaron mark" />
+# btcaaron<img src="images/mark.png" width="52" alt="btcaaron mark" style="margin-left:4px;vertical-align:middle" />
 
 A pragmatic Bitcoin toolkit with a clear path toward full Taproot engineering.
 
