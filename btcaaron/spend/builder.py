@@ -48,6 +48,9 @@ class SpendBuilder:
         self._preimage: Optional[str] = None
         self._signatures: List[Key] = []
         self._custom_witness: Optional[List[str]] = None
+        
+        # Transaction options
+        self._sequence: Optional[int] = None  # Custom nSequence value
     
     # ══════════════════════════════════════════════════════════════
     # Input
@@ -84,6 +87,27 @@ class SpendBuilder:
             sats: Amount in satoshis
         """
         self._outputs.append((address, sats))
+        return self
+    
+    # ══════════════════════════════════════════════════════════════
+    # Transaction Options
+    # ══════════════════════════════════════════════════════════════
+    
+    def sequence(self, value: int) -> "SpendBuilder":
+        """
+        Set custom nSequence value for the input.
+        
+        Common values:
+            0xffffffff  — Final, RBF disabled
+            0xfffffffd  — RBF enabled (default for non-timelock)
+            
+        For CSV_TIMELOCK scripts, nSequence is set automatically
+        from the timelock parameters. This method overrides that.
+        
+        Args:
+            value: nSequence as integer (e.g. 0xffffffff)
+        """
+        self._sequence = value
         return self
     
     # ══════════════════════════════════════════════════════════════
@@ -152,9 +176,14 @@ class SpendBuilder:
         from bitcoinutils.transactions import Transaction as BUTransaction
         from bitcoinutils.transactions import TxInput, TxOutput, TxWitnessInput
         from bitcoinutils.utils import to_satoshis
+        import struct
         
         # Create input
         txin = TxInput(self._utxo_txid, self._utxo_vout)
+        
+        # Apply custom sequence if set
+        if self._sequence is not None:
+            txin.sequence = struct.pack('<I', self._sequence)
         
         # Create outputs
         txouts = []
@@ -171,12 +200,17 @@ class SpendBuilder:
             raise BuildError("Key-path spending requires .sign(internal_key)")
         
         key = self._signatures[0]
+        scripts_for_tweak = (
+            self._program._merkle_root
+            if getattr(self._program, '_use_tapmath', False)
+            else self._program._tree
+        )
         sig = key._internal.sign_taproot_input(
             tx, 0,
             [self._program._addr_obj.to_script_pub_key()],
             [self._utxo_sats],
             script_path=False,
-            tapleaf_scripts=self._program._tree
+            tapleaf_scripts=scripts_for_tweak
         )
         
         tx.witnesses.append(TxWitnessInput([sig]))
@@ -187,7 +221,6 @@ class SpendBuilder:
         """Build script-path spending transaction."""
         from bitcoinutils.transactions import Transaction as BUTransaction
         from bitcoinutils.transactions import TxInput, TxOutput, TxWitnessInput, Sequence
-        from bitcoinutils.utils import ControlBlock
         from bitcoinutils.constants import TYPE_RELATIVE_TIMELOCK
         import struct
         
@@ -195,7 +228,11 @@ class SpendBuilder:
         script_type = leaf.script_type
         
         # Create input with appropriate sequence
-        if script_type == "CSV_TIMELOCK":
+        if self._sequence is not None:
+            # User-specified sequence takes priority
+            txin = TxInput(self._utxo_txid, self._utxo_vout)
+            txin.sequence = struct.pack('<I', self._sequence)
+        elif script_type == "CSV_TIMELOCK":
             seq = Sequence(TYPE_RELATIVE_TIMELOCK, leaf.params["sequence_value"])
             txin = TxInput(self._utxo_txid, self._utxo_vout, sequence=seq.for_input_sequence())
         else:
@@ -211,14 +248,9 @@ class SpendBuilder:
         # Create transaction
         tx = BUTransaction([txin], txouts, has_segwit=True)
         
-        # Get script and control block
+        # Get script and control block (program.control_block handles both bitcoinutils and tapmath paths)
         script = self._program._scripts[leaf.index]
-        cb = ControlBlock(
-            self._program._internal_key._internal_pub,
-            self._program._tree,
-            leaf.index,
-            is_odd=self._program._addr_obj.is_odd()
-        )
+        cb_hex = self._program.control_block(leaf.index)
         
         # Build witness based on script type
         witness_elements = []
@@ -294,9 +326,9 @@ class SpendBuilder:
                 raise BuildError("CUSTOM script requires .unlock_with([...])")
             witness_elements.extend(self._custom_witness)
         
-        # Add script and control block
+        # Add script and control block (script has to_hex for both Script and RawScript)
         witness_elements.append(script.to_hex())
-        witness_elements.append(cb.to_hex())
+        witness_elements.append(cb_hex)
         
         tx.witnesses.append(TxWitnessInput(witness_elements))
         

@@ -2,6 +2,7 @@
 """
 btcaaron - Simple Test Examples (Refactored)
 """
+import pytest
 from btcaaron import WIFKey, wif_to_addresses, quick_transfer
 
 WIF = "cPeon9fBsW2BxwJTALj3hGzh9vm8C52Uqsce7MzXGS1iFJkPF4AT"
@@ -31,10 +32,9 @@ def test_address_generation():
             print(f"  {typ:8}: {addr_obj.address}")
 
         print("✅ Address generation test passed!")
-        return True
     except Exception as e:
         print(f"❌ Address generation test failed: {e}")
-        return False
+        raise
 
 def test_utxo_scanning():
     print("\n" + "=" * 50)
@@ -52,10 +52,9 @@ def test_utxo_scanning():
                 print(f"    ... and {len(utxos) - 3} more")
 
         print("\n✅ UTXO scanning test completed!")
-        return True
     except Exception as e:
         print(f"❌ UTXO scanning test failed: {e}")
-        return False
+        raise
 
 def test_balance_check():
     print("\n" + "=" * 50)
@@ -75,11 +74,11 @@ def test_balance_check():
             print(f"\nHighest balance: {typ} | {bal:,} sats | {addr}")
 
         print("\n✅ Balance check test completed!")
-        return True
     except Exception as e:
         print(f"❌ Balance check test failed: {e}")
-        return False
+        raise
 
+@pytest.mark.skip(reason="Interactive - requires user input for real transfer")
 def test_transfer():
     print("\n" + "=" * 50)
     print("TEST 4: Transfer Transaction")
@@ -89,22 +88,22 @@ def test_transfer():
         candidates = [(t, a, a.get_balance()) for t, a in get_addresses(WIF).items() if a.get_balance() >= AMOUNT + FEE]
         if not candidates:
             print("❌ No address has sufficient balance.")
-            return False
+            raise AssertionError("No address has sufficient balance")
 
         from_type, from_addr, bal = sorted(candidates, key=lambda x: x[2], reverse=True)[0]
         print(f"From: {from_addr.address} ({from_type}, {bal:,} sats)")
         print(f"To:   {RECIPIENT} | Amount: {AMOUNT} | Fee: {FEE}")
         if input("Proceed? (y/N): ").lower() != 'y':
             print("Cancelled")
-            return False
+            raise AssertionError("User cancelled")
 
         txid = from_addr.send(RECIPIENT, AMOUNT, fee=FEE, debug=True).broadcast()
         print("✅ Broadcast TXID:", txid)
-        return True
     except Exception as e:
         print(f"❌ Transfer test failed: {e}")
-        return False
+        raise
 
+@pytest.mark.skip(reason="Interactive - requires user input for real transfer")
 def test_quick_transfer():
     print("\n" + "=" * 50)
     print("TEST 5: Quick Transfer")
@@ -117,18 +116,17 @@ def test_quick_transfer():
         print(f"Using {FROM}: {addr.address} | {bal:,} sats")
         if bal < AMOUNT + FEE:
             print("❌ Insufficient balance.")
-            return False
+            raise AssertionError("Insufficient balance")
 
         if input("Proceed? (y/N): ").lower() != 'y':
             print("Cancelled")
-            return False
+            raise AssertionError("User cancelled")
 
         txid = quick_transfer(WIF, FROM.lower(), RECIPIENT, AMOUNT, fee=FEE, debug=True)
         print("✅ Quick TXID:", txid)
-        return True
     except Exception as e:
         print(f"❌ Quick transfer test failed: {e}")
-        return False
+        raise
 
 def main():
     tests = [
@@ -159,47 +157,5 @@ def main():
     except Exception as e:
         print(f"❌ Error: {e}")
 
-def test_cpfp():
-    print("\n" + "=" * 50)
-    print("TEST 6: CPFP Accelerator")
-    print("=" * 50)
-
-    # 父交易信息
-    PARENT_TXID = "5534b524df6d96822036ce4dc6037beb07cb536bd81a1dc822c19d5776615f1e"
-    PARENT_VOUT = 2
-    UTXO_AMOUNT = 47537  # sats
-    HIGH_FEE = 5000      # sats，直接给个高费吸引矿工
-    SEND_AMOUNT = UTXO_AMOUNT - HIGH_FEE
-
-    try:
-        addr = get_addresses(WIF)["Taproot"]
-        print(f"Spending parent UTXO: {PARENT_TXID}:{PARENT_VOUT}")
-        print(f"From address: {addr.address}")
-        print(f"To: {RECIPIENT} | Amount: {SEND_AMOUNT} sats | Fee: {HIGH_FEE} sats")
-
-        if SEND_AMOUNT <= 0:
-            print("❌ Fee too high, nothing left to send.")
-            return False
-
-        if input("Proceed with CPFP? (y/N): ").lower() != 'y':
-            print("Cancelled")
-            return False
-
-        # 手动指定UTXO来构建交易
-        tx = addr.send(
-            RECIPIENT,
-            SEND_AMOUNT,
-            fee=HIGH_FEE,
-            utxos=[{"txid": PARENT_TXID, "vout": PARENT_VOUT, "amount": UTXO_AMOUNT}],
-            debug=True
-        )
-        txid = tx.broadcast()
-        print("✅ CPFP TXID:", txid)
-        return True
-    except Exception as e:
-        print(f"❌ CPFP test failed: {e}")
-        return False
-    
 if __name__ == "__main__":
     main()
-   
