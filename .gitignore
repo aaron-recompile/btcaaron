@@ -19,6 +19,9 @@ worklog/
 *copy*
 *.bak
 
+# Local reference materials (not part of this project)
+_reference/
+
 # Debug scripts
 debug_*.py
 

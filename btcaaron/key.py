@@ -70,14 +70,17 @@ class Key:
         """
         Generate a new random key.
         
+        Uses the underlying bitcoin-utils PrivateKey() which generates
+        a cryptographically secure random private key via os.urandom().
+        
         Args:
             network: "testnet" | "mainnet" (default: testnet)
             
         Returns:
             Key instance
         """
-        # TODO: Implement secure random generation
-        raise NotImplementedError("Key generation not yet implemented")
+        private_key = PrivateKey()
+        return cls(private_key)
     
     @property
     def wif(self) -> str:
