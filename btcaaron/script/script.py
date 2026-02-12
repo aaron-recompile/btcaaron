@@ -66,3 +66,38 @@ class Script:
     
     def __repr__(self) -> str:
         return f"Script({self.to_asm()[:50]}...)"
+
+
+class RawScript:
+    """
+    Raw script wrapper that does NOT use bitcoin-utils parsing.
+    
+    Use for scripts containing non-standard opcodes (e.g. Inquisition 0x7e)
+    that bitcoin-utils would reject. Stores hex as-is without parsing.
+    
+    Example:
+        raw = RawScript("76a914" + pubkey_hash + "88ac")
+    """
+    
+    def __init__(self, hex_str: str):
+        """
+        Args:
+            hex_str: Script as hex string (no validation/parsing)
+        """
+        self._hex = hex_str
+        self._bytes = bytes.fromhex(hex_str)
+    
+    def to_hex(self) -> str:
+        """Get script as hex string."""
+        return self._hex
+    
+    def to_bytes(self) -> bytes:
+        """Get script as raw bytes."""
+        return self._bytes
+    
+    def to_asm(self) -> str:
+        """Simple display as hex (no parsing - use for RawScript)."""
+        return self._hex
+    
+    def __repr__(self) -> str:
+        return f"RawScript({self._hex[:32]}...)"

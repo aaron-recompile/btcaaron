@@ -36,98 +36,134 @@ class TaprootProgram:
     
     def _compile(self):
         """Compile leaves into scripts and compute Taproot address."""
-        from bitcoinutils.script import Script
+        from bitcoinutils.script import Script as BUScript
         from bitcoinutils.transactions import Sequence
         from bitcoinutils.constants import TYPE_RELATIVE_TIMELOCK
-        
+
+        from ..script.script import RawScript
+
         scripts = []
-        
+
         for leaf_data in self._raw_leaves:
             script_type = leaf_data["script_type"]
             params = leaf_data["params"]
             label = leaf_data["label"]
             index = leaf_data["index"]
-            
+
             if script_type == "HASHLOCK":
-                script = Script([
+                script = BUScript([
                     'OP_SHA256',
                     params["preimage_hash"],
                     'OP_EQUALVERIFY',
                     'OP_TRUE'
                 ])
-                
+
             elif script_type == "CHECKSIG":
-                script = Script([
+                script = BUScript([
                     params["pubkey"],
                     'OP_CHECKSIG'
                 ])
-                
+
             elif script_type == "MULTISIG":
                 ops = ["OP_0"]
                 for pk in params["pubkeys"]:
                     ops.append(pk)
                     ops.append("OP_CHECKSIGADD")
-                # FIXED: Use "OP_2" not "2"
                 ops.append(f"OP_{params['threshold']}")
                 ops.append("OP_EQUAL")
-                script = Script(ops)
-                
+                script = BUScript(ops)
+
             elif script_type == "CSV_TIMELOCK":
                 blocks = params.get("blocks") or params.get("sequence_value")
                 seq = Sequence(TYPE_RELATIVE_TIMELOCK, blocks)
-                script = Script([
+                script = BUScript([
                     seq.for_script(),
                     "OP_CHECKSEQUENCEVERIFY",
                     "OP_DROP",
                     params["pubkey"],
                     "OP_CHECKSIG"
                 ])
-                
+
             elif script_type == "CUSTOM":
-                script = params["script"]._internal
-                
+                script = params["script"]
+                if isinstance(script, RawScript):
+                    script = script  # keep as RawScript
+                else:
+                    script = script._internal  # our Script -> bitcoinutils
+
             else:
                 raise ValueError(f"Unknown script type: {script_type}")
-            
+
             scripts.append(script)
-            
+
+            script_hex = script.to_hex()
+            script_asm = script.to_asm() if isinstance(script, RawScript) else str(script)
+
             descriptor = LeafDescriptor(
                 label=label,
                 index=index,
                 script_type=script_type,
-                script_hex=script.to_hex(),
-                script_asm=str(script),
+                script_hex=script_hex,
+                script_asm=script_asm,
                 params=params,
                 tapleaf_hash="",
             )
-            
+
             self._leaf_descriptors[label] = descriptor
             self._leaf_by_index[index] = descriptor
-        
+
         self._scripts = scripts
-        
-        # Build tree structure
-        if len(scripts) == 0:
-            tree = None
-        elif len(scripts) == 1:
-            tree = scripts[0]
-        elif len(scripts) == 2:
-            tree = [scripts[0], scripts[1]]
-        elif len(scripts) == 4:
-            tree = [[scripts[0], scripts[1]], [scripts[2], scripts[3]]]
+
+        # Check if any RawScript (has_raw) -> use tapmath path
+        has_raw = any(isinstance(s, RawScript) for s in scripts)
+
+        if has_raw:
+            # Tapmath path: no bitcoinutils tree, use tagged hashes
+            from . import tapmath
+
+            def _script_to_bytes(s):
+                if isinstance(s, RawScript):
+                    return s.to_bytes()
+                return bytes.fromhex(s.to_hex())
+
+            script_bytes_list = [_script_to_bytes(s) for s in scripts]
+            leaf_hashes = [tapmath.tapleaf_hash(b) for b in script_bytes_list]
+            merkle_root = tapmath.compute_merkle_root(leaf_hashes)
+
+            self._use_tapmath = True
+            self._leaf_hashes = leaf_hashes
+            self._merkle_root = merkle_root
+            self._tree = None
+
+            addr = self._internal_key._internal_pub.get_taproot_address(merkle_root)
+            self._address = addr.to_string()
+            self._addr_obj = addr
         else:
-            tree = scripts
-        
-        self._tree = tree
-        
-        # Compute address
-        if tree is None:
-            addr = self._internal_key._internal_pub.get_taproot_address()
-        else:
-            addr = self._internal_key._internal_pub.get_taproot_address(tree)
-        
-        self._address = addr.to_string()
-        self._addr_obj = addr
+            # Original bitcoinutils path
+            self._use_tapmath = False
+            self._leaf_hashes = None
+            self._merkle_root = None
+
+            if len(scripts) == 0:
+                tree = None
+            elif len(scripts) == 1:
+                tree = scripts[0]
+            elif len(scripts) == 2:
+                tree = [scripts[0], scripts[1]]
+            elif len(scripts) == 4:
+                tree = [[scripts[0], scripts[1]], [scripts[2], scripts[3]]]
+            else:
+                tree = scripts
+
+            self._tree = tree
+
+            if tree is None:
+                addr = self._internal_key._internal_pub.get_taproot_address()
+            else:
+                addr = self._internal_key._internal_pub.get_taproot_address(tree)
+
+            self._address = addr.to_string()
+            self._addr_obj = addr
     
     @property
     def address(self) -> str:
@@ -139,7 +175,8 @@ class TaprootProgram:
     
     @property
     def merkle_root(self) -> Optional[str]:
-        return self._merkle_root
+        mr = self._merkle_root
+        return mr.hex() if isinstance(mr, bytes) else mr
     
     @property
     def leaves(self) -> List[str]:
@@ -161,15 +198,26 @@ class TaprootProgram:
             return self._leaf_descriptors[label_or_index]
     
     def control_block(self, label_or_index: Union[str, int]) -> str:
-        from bitcoinutils.utils import ControlBlock
         leaf = self.leaf(label_or_index)
-        cb = ControlBlock(
-            self._internal_key._internal_pub,
-            self._tree,
-            leaf.index,
-            is_odd=self._addr_obj.is_odd()
-        )
-        return cb.to_hex()
+        if getattr(self, '_use_tapmath', False):
+            from . import tapmath
+            internal_key_bytes = bytes.fromhex(self._internal_key.xonly)
+            cb_bytes = tapmath.compute_control_block(
+                internal_key_bytes,
+                self._leaf_hashes,
+                leaf.index,
+                is_odd=self._addr_obj.is_odd(),
+            )
+            return cb_bytes.hex()
+        else:
+            from bitcoinutils.utils import ControlBlock
+            cb = ControlBlock(
+                self._internal_key._internal_pub,
+                self._tree,
+                leaf.index,
+                is_odd=self._addr_obj.is_odd()
+            )
+            return cb.to_hex()
     
     def spend(self, label_or_index: Union[str, int]) -> "SpendBuilder":
         from ..spend.builder import SpendBuilder

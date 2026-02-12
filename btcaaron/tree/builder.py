@@ -4,7 +4,7 @@ btcaaron.tree.builder - TapTree Builder
 TapTree provides a fluent interface for constructing Taproot script trees.
 """
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, Union, TYPE_CHECKING
 import hashlib
 
 from ..key import Key
@@ -12,7 +12,7 @@ from .leaf import LeafDescriptor
 from .program import TaprootProgram
 
 if TYPE_CHECKING:
-    from ..script.script import Script
+    from ..script.script import Script, RawScript
 
 
 class TapTree:
@@ -174,7 +174,7 @@ class TapTree:
         })
         return self
     
-    def custom(self, script: "Script", *, label: str,
+    def custom(self, script: Union["Script", "RawScript"], *, label: str,
                unlock_hint: str = None) -> "TapTree":
         """
         Add a custom script leaf.
@@ -182,7 +182,7 @@ class TapTree:
         Unlock: .unlock_with([witness_element_1, ...])
         
         Args:
-            script: Script object
+            script: Script or RawScript (RawScript for non-standard opcodes e.g. Inquisition)
             label: Required - custom scripts must have a label
             unlock_hint: Description of how to unlock (for explain())
         """

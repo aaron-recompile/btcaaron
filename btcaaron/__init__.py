@@ -27,7 +27,7 @@ from .legacy import (
 from .key import Key
 from .tree import TapTree, TaprootProgram, LeafDescriptor
 from .spend import SpendBuilder, Transaction
-from .script import Script
+from .script import Script, RawScript
 from .errors import (
     BtcAaronError,
     BuildError,
@@ -54,6 +54,7 @@ __all__ = [
     "SpendBuilder",
     "Transaction",
     "Script",
+    "RawScript",
     
     # Errors
     "BtcAaronError",
