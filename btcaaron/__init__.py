@@ -34,6 +34,8 @@ from .errors import (
     BroadcastError,
     ValidationError,
 )
+from .network import get_balance, fetch_utxos
+from . import faucet as _faucet
 
 __all__ = [
     # Version
@@ -61,4 +63,9 @@ __all__ = [
     "BuildError",
     "BroadcastError",
     "ValidationError",
+    # Network UTXO
+    "get_balance",
+    "fetch_utxos",
+    # Faucet
+    "faucet",
 ]

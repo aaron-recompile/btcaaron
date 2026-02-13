@@ -59,32 +59,38 @@ class Transaction:
         """Fee rate in sat/vB"""
         return self.fee / self.vsize if self.vsize > 0 else 0
     
-    def broadcast(self, *, provider: str = "auto", explain: bool = False) -> str:
+    def broadcast(self, *, provider: str = "auto", network: str = "testnet",
+                  explain: bool = False) -> str:
         """
         Broadcast transaction to the network.
-        
+
+        When provider="auto", uses parallel broadcast (both APIs at once, first success wins).
+
         Args:
             provider: "mempool" | "blockstream" | "auto"
+            network: "testnet" or "mainnet"
             explain: Print explanation before broadcasting
-            
+
         Returns:
             Transaction ID if successful
         """
         if explain:
             print(self.explain().to_text())
-        
+
+        from ..network.broadcast import broadcast_parallel
         from ..network.mempool import MempoolProvider
         from ..network.blockstream import BlockstreamProvider
         from ..errors import BroadcastError
-        
-        providers = []
+
         if provider == "auto":
-            providers = [MempoolProvider(), BlockstreamProvider()]
-        elif provider == "mempool":
-            providers = [MempoolProvider()]
+            return broadcast_parallel(self.hex, network=network)
+
+        providers = []
+        if provider == "mempool":
+            providers = [MempoolProvider(network=network)]
         elif provider == "blockstream":
-            providers = [BlockstreamProvider()]
-        
+            providers = [BlockstreamProvider(network=network)]
+
         for p in providers:
             try:
                 result = p.broadcast(self.hex)
@@ -92,7 +98,7 @@ class Transaction:
                     return result
             except Exception:
                 continue
-        
+
         raise BroadcastError("All broadcast attempts failed")
     
     def explain(self) -> "TransactionExplanation":

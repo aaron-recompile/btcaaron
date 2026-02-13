@@ -41,7 +41,8 @@ class SpendBuilder:
         self._utxo_txid: Optional[str] = None
         self._utxo_vout: Optional[int] = None
         self._utxo_sats: Optional[int] = None
-        
+        self._from_balance_network: Optional[str] = None  # "testnet" | "mainnet"
+
         self._outputs: List[tuple] = []  # [(address, sats), ...]
         
         # Unlock data
@@ -59,7 +60,7 @@ class SpendBuilder:
     def from_utxo(self, txid: str, vout: int = None, *, sats: int) -> "SpendBuilder":
         """
         Specify the input UTXO.
-        
+
         Args:
             txid: Transaction ID (can be "txid:vout" format)
             vout: Output index (if not in txid string)
@@ -68,10 +69,23 @@ class SpendBuilder:
         if ":" in txid and vout is None:
             txid, vout_str = txid.split(":")
             vout = int(vout_str)
-        
+
         self._utxo_txid = txid
         self._utxo_vout = vout
         self._utxo_sats = sats
+        self._from_balance_network = None  # Clear auto-select
+        return self
+
+    def from_balance(self, network: str = "testnet") -> "SpendBuilder":
+        """
+        Auto-select UTXO from program (commit) address.
+        Fetches UTXOs via API, selects one covering outputs + fee.
+        Resolved at .build() when outputs are known.
+        """
+        self._from_balance_network = network
+        self._utxo_txid = None
+        self._utxo_vout = None
+        self._utxo_sats = None
         return self
     
     # ══════════════════════════════════════════════════════════════
@@ -153,15 +167,34 @@ class SpendBuilder:
     def build(self) -> Transaction:
         """
         Build the final transaction.
-        
+
         Returns:
             Transaction object ready for broadcast
         """
         from ..errors import BuildError
-        
+        from ..network import fetch_utxos
+
+        # Resolve from_balance if used (single-input: pick smallest UTXO that covers)
+        if self._from_balance_network is not None:
+            if not self._outputs:
+                raise BuildError("No outputs specified. Call .to() before .build()")
+            target = sum(s for _, s in self._outputs) + 300  # Fee estimate
+            addr = self._program.address
+            utxos = fetch_utxos(addr, network=self._from_balance_network)
+            candidates = [u for u in utxos if u["amount"] >= target]
+            if not candidates:
+                raise BuildError(
+                    f"Insufficient balance at {addr[:20]}... (need {target} sats)"
+                )
+            u = min(candidates, key=lambda x: x["amount"])
+            self._utxo_txid = u["txid"]
+            self._utxo_vout = u["vout"]
+            self._utxo_sats = u["amount"]
+            self._from_balance_network = None
+
         # Validate inputs
         if self._utxo_txid is None:
-            raise BuildError("No UTXO specified. Call .from_utxo() first.")
+            raise BuildError("No UTXO specified. Call .from_utxo() or .from_balance()")
         if not self._outputs:
             raise BuildError("No outputs specified. Call .to() first.")
         
