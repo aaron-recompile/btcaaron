@@ -8,7 +8,7 @@ Run with: pytest tests/test_btcaaron_v0.2.py -v
 """
 
 import pytest
-from btcaaron import Key, TapTree
+from btcaaron import Key, TapTree, Psbt
 
 
 # ============================================================================
@@ -358,6 +358,32 @@ class TestSpendBuilder:
         
         assert tx.hex is not None
         assert tx.fee == 500
+    
+    def test_from_utxos_single_equiv_to_from_utxo(self, program, keys):
+        """from_utxos([(txid,vout,sats)]) should match from_utxo() for single UTXO"""
+        tx1 = (program.spend("hash")
+            .from_utxo("a" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .unlock(preimage="helloworld")
+            .build())
+        tx2 = (program.spend("hash")
+            .from_utxos([("a" * 64, 0, 1000)])
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .unlock(preimage="helloworld")
+            .build())
+        assert tx1.txid == tx2.txid
+        assert tx1.fee == tx2.fee == 500
+    
+    def test_from_utxos_multi_builds(self, program, keys):
+        """from_utxos with 2 UTXOs should build successfully"""
+        tx = (program.spend("hash")
+            .from_utxos([("a" * 64, 0, 600), ("b" * 64, 1, 400)])
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 800)
+            .unlock(preimage="helloworld")
+            .build())
+        assert tx.hex is not None
+        assert tx.fee == 200  # 1000 total in - 800 out
+        assert len(tx.txid) == 64
 
 
 # ============================================================================
@@ -527,6 +553,101 @@ class TestTwoLeafVerifiedTransactions:
 
         assert tx.txid == info["txid"]
         assert tx.fee == info["fee"]
+
+
+# ============================================================================
+# PSBT Flow Tests
+# ============================================================================
+
+class TestPsbtFlow:
+    """Test PSBT create → sign → finalize → extract flow."""
+
+    @pytest.fixture
+    def keys(self):
+        return {
+            "alice": Key.from_wif(ALICE_WIF),
+            "bob": Key.from_wif(BOB_WIF),
+        }
+
+    @pytest.fixture
+    def program(self, keys):
+        return (TapTree(internal_key=keys["alice"])
+            .hashlock("helloworld", label="hash")
+            .multisig(2, [keys["alice"], keys["bob"]], label="2of2")
+        ).build()
+
+    def test_psbt_multisig_roundtrip(self, program, keys):
+        """PSBT multisig flow should build valid transaction"""
+        psbt = (program.spend("2of2")
+            .from_utxo("b" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .to_psbt())
+
+        psbt.sign_with(keys["alice"], 0)
+        psbt.sign_with(keys["bob"], 0)
+        psbt.finalize()
+        tx = psbt.extract_transaction()
+
+        assert tx is not None
+        assert hasattr(tx, 'get_txid') or hasattr(tx, 'txid')
+        txid = tx.get_txid() if hasattr(tx, 'get_txid') else tx.txid
+        assert len(txid) == 64
+        assert txid == txid.lower()
+
+    def test_psbt_multisig_txid_matches_direct_build(self, program, keys):
+        """PSBT multisig flow should produce same TXID as direct .sign().build()"""
+        # Direct build
+        tx_direct = (program.spend("2of2")
+            .from_utxo("b" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .sign(keys["alice"], keys["bob"])
+            .build())
+
+        # PSBT flow
+        psbt = (program.spend("2of2")
+            .from_utxo("b" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .to_psbt())
+        psbt.sign_with(keys["alice"], 0)
+        psbt.sign_with(keys["bob"], 0)
+        psbt.finalize()
+        tx_psbt = psbt.extract_transaction()
+
+        txid_psbt = tx_psbt.get_txid() if hasattr(tx_psbt, 'get_txid') else tx_psbt.txid
+        assert txid_psbt == tx_direct.txid
+        assert tx_direct.fee == 500
+
+    def test_psbt_verified_multisig_txid_match(self, program, keys):
+        """PSBT multisig with verified UTXO should produce exact TXID"""
+        info = VERIFIED_TXS["multisig"]
+
+        psbt = (program.spend("2of2")
+            .from_utxo(info["input_txid"], info["input_vout"], sats=info["input_sats"])
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", info["output_sats"])
+            .to_psbt())
+        psbt.sign_with(keys["alice"], 0)
+        psbt.sign_with(keys["bob"], 0)
+        psbt.finalize()
+        tx = psbt.extract_transaction()
+
+        txid = tx.get_txid() if hasattr(tx, 'get_txid') else tx.txid
+        assert txid == info["txid"]
+
+    def test_psbt_base64_roundtrip(self, program, keys):
+        """PSBT to_base64 → from_base64 should preserve signing capability"""
+        psbt1 = (program.spend("2of2")
+            .from_utxo("c" * 64, 0, sats=800)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 300)
+            .to_psbt())
+        b64 = psbt1.to_base64()
+        psbt2 = Psbt.from_base64(b64)
+        psbt2.sign_with(keys["alice"], 0)
+        psbt2.sign_with(keys["bob"], 0)
+        psbt2.finalize()
+        tx = psbt2.extract_transaction()
+        assert tx is not None
+        txid = tx.get_txid() if hasattr(tx, 'get_txid') else tx.txid
+        assert len(txid) == 64
 
 
 # ============================================================================

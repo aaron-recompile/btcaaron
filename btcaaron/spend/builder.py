@@ -4,7 +4,7 @@ btcaaron.spend.builder - SpendBuilder
 SpendBuilder provides a fluent interface for constructing spending transactions.
 """
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, Tuple, Union, TYPE_CHECKING
 
 from ..key import Key
 from .transaction import Transaction
@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     from ..tree.program import TaprootProgram
     from ..tree.leaf import LeafDescriptor
 
+# UTXO as (txid, vout, sats)
+UTXO = Tuple[str, int, int]
+
 
 class SpendBuilder:
     """
@@ -20,10 +23,17 @@ class SpendBuilder:
     
     Fluent interface for building spending transactions.
     
-    Example:
+    Example (single UTXO):
         tx = (program.spend("hash")
             .from_utxo("abc123...", 0, sats=1200)
             .to("tb1p...", 666)
+            .unlock(preimage="secret")
+            .build())
+    
+    Example (multiple UTXOs):
+        tx = (program.spend("hash")
+            .from_utxos([("abc123...", 0, 800), ("def456...", 1, 400)])
+            .to("tb1p...", 1000)
             .unlock(preimage="secret")
             .build())
     """
@@ -37,10 +47,8 @@ class SpendBuilder:
         self._leaf = leaf
         self._is_keypath = is_keypath
         
-        # Transaction data
-        self._utxo_txid: Optional[str] = None
-        self._utxo_vout: Optional[int] = None
-        self._utxo_sats: Optional[int] = None
+        # Transaction data: list of (txid, vout, sats)
+        self._utxos: List[UTXO] = []
         
         self._outputs: List[tuple] = []  # [(address, sats), ...]
         
@@ -58,7 +66,7 @@ class SpendBuilder:
     
     def from_utxo(self, txid: str, vout: int = None, *, sats: int) -> "SpendBuilder":
         """
-        Specify the input UTXO.
+        Specify a single input UTXO.
         
         Args:
             txid: Transaction ID (can be "txid:vout" format)
@@ -69,9 +77,18 @@ class SpendBuilder:
             txid, vout_str = txid.split(":")
             vout = int(vout_str)
         
-        self._utxo_txid = txid
-        self._utxo_vout = vout
-        self._utxo_sats = sats
+        self._utxos = [(txid, vout, sats)]
+        return self
+    
+    def from_utxos(self, utxos: Union[List[UTXO], List[Tuple[str, int, int]]]) -> "SpendBuilder":
+        """
+        Specify multiple input UTXOs.
+        
+        Args:
+            utxos: List of (txid, vout, sats). Example:
+                [("abc123...", 0, 1200), ("def456...", 1, 800)]
+        """
+        self._utxos = [(str(txid), int(vout), int(sats)) for txid, vout, sats in utxos]
         return self
     
     # ══════════════════════════════════════════════════════════════
@@ -160,8 +177,8 @@ class SpendBuilder:
         from ..errors import BuildError
         
         # Validate inputs
-        if self._utxo_txid is None:
-            raise BuildError("No UTXO specified. Call .from_utxo() first.")
+        if not self._utxos:
+            raise BuildError("No UTXO specified. Call .from_utxo() or .from_utxos() first.")
         if not self._outputs:
             raise BuildError("No outputs specified. Call .to() first.")
         
@@ -170,20 +187,105 @@ class SpendBuilder:
             return self._build_keypath()
         else:
             return self._build_script_path()
+
+    def to_psbt(self):
+        """
+        Build unsigned transaction as PSBT for multi-party signing.
+        
+        Returns:
+            Psbt object (call .sign_with(), .finalize(), .extract_transaction())
+        """
+        from ..errors import BuildError
+        from ..psbt import Psbt, PsbtInput
+
+        if not self._utxos:
+            raise BuildError("No UTXO specified. Call .from_utxo() or .from_utxos() first.")
+        if not self._outputs:
+            raise BuildError("No outputs specified. Call .to() first.")
+
+        tx = self._build_unsigned_tx()
+        psbt = Psbt(tx)
+
+        script_pub_key = self._program._addr_obj.to_script_pub_key()
+        spk_bytes = script_pub_key.to_bytes()
+
+        for i, (txid, vout, sats) in enumerate(self._utxos):
+            inp = psbt.inputs[i]
+            inp.witness_utxo = (sats, spk_bytes)
+            inp.tap_internal_key = bytes.fromhex(self._program._internal_key.xonly)
+
+            if self._is_keypath:
+                scripts_for_tweak = (
+                    self._program._merkle_root
+                    if getattr(self._program, '_use_tapmath', False)
+                    else self._program._tree
+                )
+                if scripts_for_tweak is not None:
+                    inp._tapleaf_scripts_for_tweak = scripts_for_tweak
+                else:
+                    inp._tapleaf_scripts_for_tweak = []
+            else:
+                script = self._program._scripts[self._leaf.index]
+                script_bytes = (
+                    script.to_bytes() if hasattr(script, 'to_bytes') 
+                    else bytes.fromhex(script.to_hex())
+                )
+                cb_hex = self._program.control_block(self._leaf.index)
+                inp.tap_leaf_script = (script_bytes, bytes.fromhex(cb_hex))
+                inp._tapleaf_script_obj = script
+
+        return psbt
+
+    def _build_unsigned_tx(self):
+        """Build transaction structure without signing (for PSBT)."""
+        from bitcoinutils.transactions import Transaction as BUTransaction
+        from bitcoinutils.transactions import TxInput, TxOutput, Sequence
+        from bitcoinutils.constants import TYPE_RELATIVE_TIMELOCK
+        import struct
+
+        txins = []
+        for txid, vout, sats in self._utxos:
+            if self._is_keypath:
+                txin = TxInput(txid, vout)
+                if self._sequence is not None:
+                    txin.sequence = struct.pack('<I', self._sequence)
+            else:
+                leaf = self._leaf
+                if self._sequence is not None:
+                    txin = TxInput(txid, vout)
+                    txin.sequence = struct.pack('<I', self._sequence)
+                elif leaf.script_type == "CSV_TIMELOCK":
+                    seq = Sequence(TYPE_RELATIVE_TIMELOCK, leaf.params["sequence_value"])
+                    txin = TxInput(txid, vout, sequence=seq.for_input_sequence())
+                else:
+                    txin = TxInput(txid, vout)
+                    txin.sequence = struct.pack('<I', 0xfffffffd)
+            txins.append(txin)
+
+        txouts = []
+        for addr_str, sats in self._outputs:
+            addr_obj = self._address_from_string(addr_str)
+            txouts.append(TxOutput(sats, addr_obj.to_script_pub_key()))
+
+        return BUTransaction(txins, txouts, has_segwit=True)
     
     def _build_keypath(self) -> Transaction:
         """Build key-path spending transaction."""
         from bitcoinutils.transactions import Transaction as BUTransaction
         from bitcoinutils.transactions import TxInput, TxOutput, TxWitnessInput
-        from bitcoinutils.utils import to_satoshis
         import struct
         
-        # Create input
-        txin = TxInput(self._utxo_txid, self._utxo_vout)
-        
-        # Apply custom sequence if set
-        if self._sequence is not None:
-            txin.sequence = struct.pack('<I', self._sequence)
+        # Create inputs
+        txins = []
+        script_pub_keys = []
+        amounts = []
+        for txid, vout, sats in self._utxos:
+            txin = TxInput(txid, vout)
+            if self._sequence is not None:
+                txin.sequence = struct.pack('<I', self._sequence)
+            txins.append(txin)
+            script_pub_keys.append(self._program._addr_obj.to_script_pub_key())
+            amounts.append(sats)
         
         # Create outputs
         txouts = []
@@ -191,10 +293,8 @@ class SpendBuilder:
             addr_obj = self._address_from_string(addr_str)
             txouts.append(TxOutput(sats, addr_obj.to_script_pub_key()))
         
-        # Create transaction
-        tx = BUTransaction([txin], txouts, has_segwit=True)
+        tx = BUTransaction(txins, txouts, has_segwit=True)
         
-        # Sign with internal key (tweaked)
         if not self._signatures:
             from ..errors import BuildError
             raise BuildError("Key-path spending requires .sign(internal_key)")
@@ -205,17 +305,20 @@ class SpendBuilder:
             if getattr(self._program, '_use_tapmath', False)
             else self._program._tree
         )
-        sig = key._internal.sign_taproot_input(
-            tx, 0,
-            [self._program._addr_obj.to_script_pub_key()],
-            [self._utxo_sats],
-            script_path=False,
-            tapleaf_scripts=scripts_for_tweak
-        )
         
-        tx.witnesses.append(TxWitnessInput([sig]))
+        # Sign each input
+        for i in range(len(self._utxos)):
+            sig = key._internal.sign_taproot_input(
+                tx, i,
+                script_pub_keys,
+                amounts,
+                script_path=False,
+                tapleaf_scripts=scripts_for_tweak
+            )
+            tx.witnesses.append(TxWitnessInput([sig]))
         
-        return Transaction(tx, self._program, None, self._utxo_sats)
+        total_sats = sum(sats for _, _, sats in self._utxos)
+        return Transaction(tx, self._program, None, total_sats)
     
     def _build_script_path(self) -> Transaction:
         """Build script-path spending transaction."""
@@ -226,18 +329,22 @@ class SpendBuilder:
         
         leaf = self._leaf
         script_type = leaf.script_type
+        script_pub_keys = [self._program._addr_obj.to_script_pub_key()] * len(self._utxos)
+        amounts = [sats for _, _, sats in self._utxos]
         
-        # Create input with appropriate sequence
-        if self._sequence is not None:
-            # User-specified sequence takes priority
-            txin = TxInput(self._utxo_txid, self._utxo_vout)
-            txin.sequence = struct.pack('<I', self._sequence)
-        elif script_type == "CSV_TIMELOCK":
-            seq = Sequence(TYPE_RELATIVE_TIMELOCK, leaf.params["sequence_value"])
-            txin = TxInput(self._utxo_txid, self._utxo_vout, sequence=seq.for_input_sequence())
-        else:
-            txin = TxInput(self._utxo_txid, self._utxo_vout)
-            txin.sequence = struct.pack('<I', 0xfffffffd)  # RBF enabled
+        # Create inputs
+        txins = []
+        for txid, vout, sats in self._utxos:
+            if self._sequence is not None:
+                txin = TxInput(txid, vout)
+                txin.sequence = struct.pack('<I', self._sequence)
+            elif script_type == "CSV_TIMELOCK":
+                seq = Sequence(TYPE_RELATIVE_TIMELOCK, leaf.params["sequence_value"])
+                txin = TxInput(txid, vout, sequence=seq.for_input_sequence())
+            else:
+                txin = TxInput(txid, vout)
+                txin.sequence = struct.pack('<I', 0xfffffffd)  # RBF enabled
+            txins.append(txin)
         
         # Create outputs
         txouts = []
@@ -245,94 +352,83 @@ class SpendBuilder:
             addr_obj = self._address_from_string(addr_str)
             txouts.append(TxOutput(sats, addr_obj.to_script_pub_key()))
         
-        # Create transaction
-        tx = BUTransaction([txin], txouts, has_segwit=True)
+        tx = BUTransaction(txins, txouts, has_segwit=True)
         
-        # Get script and control block (program.control_block handles both bitcoinutils and tapmath paths)
         script = self._program._scripts[leaf.index]
         cb_hex = self._program.control_block(leaf.index)
         
-        # Build witness based on script type
-        witness_elements = []
-        
-        if script_type == "HASHLOCK":
-            if self._preimage is None:
-                from ..errors import BuildError
-                raise BuildError("HASHLOCK requires .unlock(preimage='...')")
-            witness_elements.append(self._preimage.encode('utf-8').hex())
+        # Build witness for each input (each input needs its own signature)
+        for input_idx in range(len(self._utxos)):
+            witness_elements = []
             
-        elif script_type == "CHECKSIG":
-            if not self._signatures:
-                from ..errors import BuildError
-                raise BuildError("CHECKSIG requires .sign(key)")
-            
-            key = self._signatures[0]
-            sig = key._internal.sign_taproot_input(
-                tx, 0,
-                [self._program._addr_obj.to_script_pub_key()],
-                [self._utxo_sats],
-                script_path=True,
-                tapleaf_script=script,
-                tweak=False
-            )
-            witness_elements.append(sig)
-            
-        elif script_type == "MULTISIG":
-            if len(self._signatures) < leaf.params["threshold"]:
-                from ..errors import BuildError
-                raise BuildError(f"MULTISIG requires at least {leaf.params['threshold']} signatures")
-            
-            # Sign with each key and order correctly
-            # In CHECKSIGADD, signatures are consumed in order: first key, second key, etc.
-            # But witness stack is LIFO, so we need reverse order
-            pubkeys = leaf.params["pubkeys"]
-            sigs_by_pubkey = {}
-            
-            for key in self._signatures:
+            if script_type == "HASHLOCK":
+                if self._preimage is None:
+                    from ..errors import BuildError
+                    raise BuildError("HASHLOCK requires .unlock(preimage='...')")
+                witness_elements.append(self._preimage.encode('utf-8').hex())
+                
+            elif script_type == "CHECKSIG":
+                if not self._signatures:
+                    from ..errors import BuildError
+                    raise BuildError("CHECKSIG requires .sign(key)")
+                key = self._signatures[0]
                 sig = key._internal.sign_taproot_input(
-                    tx, 0,
-                    [self._program._addr_obj.to_script_pub_key()],
-                    [self._utxo_sats],
+                    tx, input_idx,
+                    script_pub_keys,
+                    amounts,
                     script_path=True,
                     tapleaf_script=script,
                     tweak=False
                 )
-                sigs_by_pubkey[key.xonly] = sig
+                witness_elements.append(sig)
+                
+            elif script_type == "MULTISIG":
+                if len(self._signatures) < leaf.params["threshold"]:
+                    from ..errors import BuildError
+                    raise BuildError(f"MULTISIG requires at least {leaf.params['threshold']} signatures")
+                pubkeys = leaf.params["pubkeys"]
+                sigs_by_pubkey = {}
+                for key in self._signatures:
+                    sig = key._internal.sign_taproot_input(
+                        tx, input_idx,
+                        script_pub_keys,
+                        amounts,
+                        script_path=True,
+                        tapleaf_script=script,
+                        tweak=False
+                    )
+                    sigs_by_pubkey[key.xonly] = sig
+                for pk in reversed(pubkeys):
+                    if pk in sigs_by_pubkey:
+                        witness_elements.append(sigs_by_pubkey[pk])
+                        
+            elif script_type == "CSV_TIMELOCK":
+                if not self._signatures:
+                    from ..errors import BuildError
+                    raise BuildError("CSV_TIMELOCK requires .sign(key)")
+                key = self._signatures[0]
+                sig = key._internal.sign_taproot_input(
+                    tx, input_idx,
+                    script_pub_keys,
+                    amounts,
+                    script_path=True,
+                    tapleaf_script=script,
+                    tweak=False
+                )
+                witness_elements.append(sig)
+                
+            elif script_type == "CUSTOM":
+                if self._custom_witness is None:
+                    from ..errors import BuildError
+                    raise BuildError("CUSTOM script requires .unlock_with([...])")
+                witness_elements.extend(self._custom_witness)
             
-            # Order signatures: last pubkey's sig first in witness
-            for pk in reversed(pubkeys):
-                if pk in sigs_by_pubkey:
-                    witness_elements.append(sigs_by_pubkey[pk])
-                    
-        elif script_type == "CSV_TIMELOCK":
-            if not self._signatures:
-                from ..errors import BuildError
-                raise BuildError("CSV_TIMELOCK requires .sign(key)")
-            
-            key = self._signatures[0]
-            sig = key._internal.sign_taproot_input(
-                tx, 0,
-                [self._program._addr_obj.to_script_pub_key()],
-                [self._utxo_sats],
-                script_path=True,
-                tapleaf_script=script,
-                tweak=False
-            )
-            witness_elements.append(sig)
-            
-        elif script_type == "CUSTOM":
-            if self._custom_witness is None:
-                from ..errors import BuildError
-                raise BuildError("CUSTOM script requires .unlock_with([...])")
-            witness_elements.extend(self._custom_witness)
+            witness_elements.append(script.to_hex())
+            witness_elements.append(cb_hex)
+            tx.witnesses.append(TxWitnessInput(witness_elements))
         
-        # Add script and control block (script has to_hex for both Script and RawScript)
-        witness_elements.append(script.to_hex())
-        witness_elements.append(cb_hex)
-        
-        tx.witnesses.append(TxWitnessInput(witness_elements))
-        
-        return Transaction(tx, self._program, leaf, self._utxo_sats)
+        total_sats = sum(sats for _, _, sats in self._utxos)
+        return Transaction(tx, self._program, leaf, total_sats)
     
     def _address_from_string(self, address: str):
         """Create address object from string."""

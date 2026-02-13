@@ -28,6 +28,7 @@ from .key import Key
 from .tree import TapTree, TaprootProgram, LeafDescriptor
 from .spend import SpendBuilder, Transaction
 from .script import Script, RawScript
+from .psbt import Psbt, PsbtInput
 from .errors import (
     BtcAaronError,
     BuildError,
@@ -55,6 +56,8 @@ __all__ = [
     "Transaction",
     "Script",
     "RawScript",
+    "Psbt",
+    "PsbtInput",
     
     # Errors
     "BtcAaronError",
