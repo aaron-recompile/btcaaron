@@ -29,8 +29,8 @@ debug_*.py
 __pycache__/
 *.pyc
 
-BTCAARON_UPSTREAM_MEMO.md
-function_thoughts_continue.md
+# Dev notes (thoughts, intermediate state, deploy memos)
+_notes/
 
 # Faucet server secrets
 faucet_server/.env
