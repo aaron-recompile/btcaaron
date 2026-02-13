@@ -8,7 +8,7 @@ v0.2.x API (new):
     from btcaaron import Key, TapTree
 """
 
-__version__ = "0.2.0-dev"
+__version__ = "0.2.1"
 
 # ══════════════════════════════════════════════════════════════════
 # Legacy API (v0.1.x) - backward compatible
