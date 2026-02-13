@@ -152,7 +152,7 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
 
 ## Acknowledgments
 
-Development of btcaaron is partially supported by an [OpenSats](https://opensats.org) grant.  
+Development of btcaaron is supported by an [OpenSats](https://opensats.org) grant.  
 OpenSats supports open-source contributors working on Bitcoin and related freedom tech.
 
 ## Author
