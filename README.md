@@ -6,7 +6,7 @@ Designed for reproducible testnet experiments, educational workflows, and script
 
 ## Current Status
 
-**v0.1.1** — Stable foundation release.  
+**v0.1.2** — Stable foundation release.  
 Core utilities actively used in my Taproot engineering work and on-chain experiments.
 
 **v0.2.0** — Core Taproot spend-path prototype implemented and testnet-verified.  
