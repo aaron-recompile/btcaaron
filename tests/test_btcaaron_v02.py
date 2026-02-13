@@ -8,7 +8,8 @@ Run with: pytest tests/test_btcaaron_v0.2.py -v
 """
 
 import pytest
-from btcaaron import Key, TapTree, Psbt
+from unittest.mock import patch
+from btcaaron import Key, TapTree, Psbt, quick_transfer
 
 
 # ============================================================================
@@ -648,6 +649,36 @@ class TestPsbtFlow:
         assert tx is not None
         txid = tx.get_txid() if hasattr(tx, 'get_txid') else tx.txid
         assert len(txid) == 64
+
+
+# ============================================================================
+# quick_transfer taproot path (v0.2 flow)
+# ============================================================================
+
+class TestQuickTransferTaproot:
+    """Test quick_transfer taproot path uses v0.2 and auto UTXO selection."""
+
+    def test_quick_transfer_taproot_returns_none_when_no_utxos(self):
+        """quick_transfer(taproot) returns None when no UTXOs available"""
+        with patch("btcaaron.network.utxo.fetch_utxos", return_value=[]):
+            result = quick_transfer(
+                ALICE_WIF, "taproot",
+                "tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209",
+                500, fee=300, debug=False
+            )
+        assert result is None
+
+    def test_quick_transfer_taproot_returns_none_when_insufficient(self):
+        """quick_transfer(taproot) returns None when balance < amount + fee"""
+        with patch("btcaaron.network.utxo.fetch_utxos", return_value=[
+            {"txid": "a" * 64, "vout": 0, "amount": 400}
+        ]):
+            result = quick_transfer(
+                ALICE_WIF, "taproot",
+                "tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209",
+                500, fee=300, debug=False
+            )
+        assert result is None
 
 
 # ============================================================================

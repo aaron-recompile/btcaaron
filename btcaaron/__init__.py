@@ -2,7 +2,7 @@
 btcaaron - Taproot-focused Bitcoin Toolkit
 
 v0.1.x API (legacy, still supported):
-    from btcaaron import WIFKey, quick_transfer
+    from btcaaron import WIFKey, quick_transfer, fund_program
 
 v0.2.x API (new):
     from btcaaron import Key, TapTree
@@ -19,6 +19,7 @@ from .legacy import (
     BTCTransaction,
     wif_to_addresses, 
     quick_transfer,
+    fund_program,
 )
 
 # ══════════════════════════════════════════════════════════════════
@@ -46,6 +47,7 @@ __all__ = [
     "BTCTransaction",
     "wif_to_addresses", 
     "quick_transfer",
+    "fund_program",
     
     # New API
     "Key",

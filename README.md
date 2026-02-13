@@ -96,6 +96,10 @@ program = (TapTree(internal_key=alice)
 
 print(program.address)  # tb1p...
 
+# Fund commit address without leaving IDE (auto UTXO selection)
+from btcaaron import fund_program
+# txid = fund_program(wif, program, 10_000)  # 打币到 program.address
+
 tx = (program.spend("hash")
     .from_utxo("abc123...", 0, sats=1200)
     .to("tb1p...", 666)

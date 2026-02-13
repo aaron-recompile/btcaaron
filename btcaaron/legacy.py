@@ -9,7 +9,10 @@ Version: 0.1.1
 License: MIT
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .tree.program import TaprootProgram
 import requests
 import concurrent.futures
 from bitcoinutils.setup import setup
@@ -25,6 +28,8 @@ TIMEOUT = 5
 MAX_WORKERS = 2
 DEFAULT_FEE = 300
 DUST_LIMIT = 546
+# Taproot dust limit (Bitcoin Core); outputs below this get "dust" rejection
+DUST_LIMIT_TAPROOT = 330
 
 
 class WIFKey:
@@ -418,11 +423,14 @@ def wif_to_addresses(wif: str) -> Dict[str, str]:
     }
 
 
-def quick_transfer(wif: str, from_type: str, to_addr: str, amount: int, 
+def quick_transfer(wif: str, from_type: str, to_addr: str, amount: int,
                   fee: int = DEFAULT_FEE, debug: bool = False) -> Optional[str]:
     """
-    Quick transfer using specified address type
-    
+    Quick transfer using specified address type.
+
+    Taproot path uses v0.2 Key + TapTree + SpendBuilder with auto UTXO selection.
+    Legacy and SegWit paths use the original BTCAddress.send() flow.
+
     Args:
         wif: WIF private key
         from_type: Sender address type ('legacy', 'segwit', 'taproot')
@@ -430,46 +438,120 @@ def quick_transfer(wif: str, from_type: str, to_addr: str, amount: int,
         amount: Transfer amount in satoshis
         fee: Transaction fee in satoshis
         debug: Whether to output debug information
-        
+
     Returns:
         Optional[str]: Transaction ID if successful, None if failed
     """
     try:
         if debug:
             print(f"Quick transfer ({from_type}):")
-        
-        # Create WIF key object
+
+        if from_type.lower() == 'taproot':
+            if amount < DUST_LIMIT_TAPROOT:
+                raise ValueError(
+                    f"Output {amount} sats below Taproot dust limit ({DUST_LIMIT_TAPROOT}). "
+                    f"Use at least {DUST_LIMIT_TAPROOT} sats."
+                )
+            # v0.2 flow: Key + TapTree keypath + auto UTXO selection
+            from .key import Key
+            from .tree import TapTree
+            from .network.utxo import fetch_utxos, select_utxos
+
+            key = Key.from_wif(wif)
+            program = TapTree(internal_key=key).build()
+            utxos = fetch_utxos(program.address, network="testnet", debug=debug)
+            if not utxos:
+                if debug:
+                    print("  No UTXOs available")
+                return None
+
+            total_needed = amount + fee
+            selected = select_utxos(utxos, total_needed)
+            if not selected:
+                if debug:
+                    avail = sum(u["amount"] for u in utxos)
+                    print(f"  Insufficient balance. Need: {total_needed:,}, Available: {avail:,}")
+                return None
+
+            if debug:
+                for i, u in enumerate(selected, 1):
+                    print(f"    {i}. {u['txid'][:16]}...:{u['vout']} = {u['amount']:,} sats")
+
+            utxo_list = [(u["txid"], u["vout"], u["amount"]) for u in selected]
+            total_input = sum(u["amount"] for u in selected)
+            change = total_input - amount - fee
+
+            builder = (program.keypath()
+                .from_utxos(utxo_list)
+                .to(to_addr, amount))
+            if change >= DUST_LIMIT:
+                builder = builder.to(program.address, change)
+            elif debug and change > 0:
+                print(f"  Change {change} sats < {DUST_LIMIT} (dust), added to fee")
+
+            tx = builder.sign(key).build()
+
+            txid = tx.broadcast()
+            if debug:
+                print(f"  Transfer successful! TxID: {txid}")
+            return txid
+
+        # Legacy and SegWit: use original flow
         wif_key = WIFKey(wif)
-        
-        # Get address object by type
         if from_type.lower() == 'legacy':
             from_addr = wif_key.get_legacy()
         elif from_type.lower() == 'segwit':
             from_addr = wif_key.get_segwit()
-        elif from_type.lower() == 'taproot':
-            from_addr = wif_key.get_taproot()
         else:
             raise ValueError(f"Unsupported address type: {from_type}")
-        
-        # Create and sign transaction
+
         tx = from_addr.send(to_addr, amount, fee, debug=debug)
-        
-        # Broadcast transaction
         txid = tx.broadcast()
-        
+
         if txid:
             if debug:
                 print(f"  Transfer successful! TxID: {txid}")
             return txid
-        else:
-            if debug:
-                print(f"  Transfer failed")
-            return None
-            
+        if debug:
+            print("  Transfer failed")
+        return None
+
     except Exception as e:
         if debug:
             print(f"Quick transfer failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
         return None
+
+
+def fund_program(
+    wif: str,
+    program: "TaprootProgram",
+    amount: int,
+    fee: int = DEFAULT_FEE,
+    debug: bool = False,
+) -> Optional[str]:
+    """
+    Fund a Taproot commit address from your taproot wallet.
+
+    One-liner for IDE workflow — no need to leave the editor to fund
+    intermediate/commit addresses when building complex scripts.
+
+    Example:
+        program = (TapTree(internal_key=alice).hashlock(...).multisig(...)).build()
+        txid = fund_program(MY_WIF, program, 10_000)  # 打 10000 sats 到 commit 地址
+
+    Args:
+        wif: Your taproot wallet WIF (used as source)
+        program: TaprootProgram from TapTree(...).build()
+        amount: Sats to send (must be >= 330 for Taproot dust limit)
+        fee: Transaction fee (default 300)
+        debug: Print UTXO selection and tx details
+
+    Returns:
+        Transaction ID if successful, None otherwise
+    """
+    return quick_transfer(wif, "taproot", program.address, amount, fee, debug)
 
 
 # Module information
@@ -477,8 +559,9 @@ __version__ = "0.1.1"
 __author__ = "Aaron Zhang"
 __all__ = [
     'WIFKey',
-    'BTCAddress', 
+    'BTCAddress',
     'BTCTransaction',
     'wif_to_addresses',
-    'quick_transfer'
+    'quick_transfer',
+    'fund_program',
 ]

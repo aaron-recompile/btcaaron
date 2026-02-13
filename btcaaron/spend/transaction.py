@@ -85,15 +85,18 @@ class Transaction:
         elif provider == "blockstream":
             providers = [BlockstreamProvider()]
         
+        errors = []
         for p in providers:
             try:
                 result = p.broadcast(self.hex)
                 if result:
                     return result
-            except Exception:
-                continue
-        
-        raise BroadcastError("All broadcast attempts failed")
+            except Exception as e:
+                errors.append(f"{p.__class__.__name__}: {e}")
+        err_msg = "All broadcast attempts failed"
+        if errors:
+            err_msg += f" ({'; '.join(errors)})"
+        raise BroadcastError(err_msg)
     
     def explain(self) -> "TransactionExplanation":
         """

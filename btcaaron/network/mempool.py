@@ -33,9 +33,10 @@ class MempoolProvider(Provider):
                 txid = response.text.strip()
                 if len(txid) == 64:
                     return txid
-        except Exception:
-            pass
-        return None
+            # Surface API error for debugging
+            raise ValueError(f"HTTP {response.status_code}: {response.text[:200]}")
+        except requests.RequestException as e:
+            raise ValueError(str(e))
     
     def get_utxos(self, address: str) -> List[Dict]:
         try:
