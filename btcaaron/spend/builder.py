@@ -213,6 +213,7 @@ class SpendBuilder:
             inp = psbt.inputs[i]
             inp.witness_utxo = (sats, spk_bytes)
             inp.tap_internal_key = bytes.fromhex(self._program._internal_key.xonly)
+            inp.tap_merkle_root = self._program.merkle_root_bytes()
 
             if self._is_keypath:
                 scripts_for_tweak = (

@@ -177,7 +177,28 @@ class TaprootProgram:
     def merkle_root(self) -> Optional[str]:
         mr = self._merkle_root
         return mr.hex() if isinstance(mr, bytes) else mr
-    
+
+    def merkle_root_bytes(self) -> bytes:
+        """
+        Return 32-byte merkle root for PSBT (BIP 371).
+        Key-path with no tree: 32 zero bytes.
+        Script-path or key-path with tree: computed root.
+        """
+        if getattr(self, '_use_tapmath', False):
+            return self._merkle_root
+        if self._tree is None:
+            return bytes(32)
+        from . import tapmath
+
+        def _script_to_bytes(s):
+            if hasattr(s, 'to_bytes'):
+                return s.to_bytes()
+            return bytes.fromhex(s.to_hex())
+
+        scripts_flat = self._scripts
+        leaf_hashes = [tapmath.tapleaf_hash(_script_to_bytes(s)) for s in scripts_flat]
+        return tapmath.compute_merkle_root(leaf_hashes)
+
     @property
     def leaves(self) -> List[str]:
         sorted_leaves = sorted(self._leaf_descriptors.values(), key=lambda x: x.index)

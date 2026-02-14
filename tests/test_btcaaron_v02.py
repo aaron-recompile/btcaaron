@@ -9,7 +9,7 @@ Run with: pytest tests/test_btcaaron_v0.2.py -v
 
 import pytest
 from unittest.mock import patch
-from btcaaron import Key, TapTree, Psbt, quick_transfer
+from btcaaron import Key, TapTree, Psbt, PsbtV2, quick_transfer
 
 
 # ============================================================================
@@ -649,6 +649,53 @@ class TestPsbtFlow:
         assert tx is not None
         txid = tx.get_txid() if hasattr(tx, 'get_txid') else tx.txid
         assert len(txid) == 64
+
+    def test_psbt_tap_merkle_root_serialized(self, program):
+        """PSBT v0 should include tap_merkle_root (BIP 371) and survive roundtrip."""
+        psbt = (program.spend("2of2")
+            .from_utxo("b" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .to_psbt())
+        assert psbt.inputs[0].tap_merkle_root is not None
+        assert len(psbt.inputs[0].tap_merkle_root) == 32
+        mr = psbt.inputs[0].tap_merkle_root
+        b64 = psbt.to_base64()
+        psbt2 = Psbt.from_base64(b64)
+        assert psbt2.inputs[0].tap_merkle_root == mr
+
+    def test_psbt_v0_to_v2_roundtrip(self, program, keys):
+        """PSBT v0 → to_v2() → finalize → extract_tx produces same TXID."""
+        psbt_v0 = (program.spend("2of2")
+            .from_utxo("b" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .to_psbt())
+        psbt_v0.sign_with(keys["alice"], 0)
+        psbt_v0.sign_with(keys["bob"], 0)
+        psbt_v0.finalize()
+        tx_v0 = psbt_v0.extract_transaction()
+        txid_v0 = tx_v0.get_txid() if hasattr(tx_v0, 'get_txid') else tx_v0.txid
+
+        psbt_v2 = psbt_v0.to_v2()
+        tx_v2 = psbt_v2.extract_transaction()
+        txid_v2 = tx_v2.get_txid() if hasattr(tx_v2, 'get_txid') else tx_v2.txid
+        assert txid_v2 == txid_v0
+
+    def test_psbt_v2_base64_roundtrip(self, program, keys):
+        """PSBT v0 → to_v2() → to_base64() → from_base64() → extract_tx."""
+        psbt_v0 = (program.spend("2of2")
+            .from_utxo("d" * 64, 0, sats=900)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 400)
+            .to_psbt())
+        psbt_v0.sign_with(keys["alice"], 0)
+        psbt_v0.sign_with(keys["bob"], 0)
+        psbt_v0.finalize()
+        txid_expected = psbt_v0.extract_transaction().get_txid()
+
+        psbt_v2 = psbt_v0.to_v2()
+        b64 = psbt_v2.to_base64()
+        psbt_v2_loaded = PsbtV2.from_base64(b64)
+        tx = psbt_v2_loaded.extract_transaction()
+        assert tx.get_txid() == txid_expected
 
 
 # ============================================================================
