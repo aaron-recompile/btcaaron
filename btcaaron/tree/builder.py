@@ -204,13 +204,28 @@ class TapTree:
     def build(self) -> TaprootProgram:
         """
         Freeze the tree and create a TaprootProgram.
-        
+
         After calling build(), the TapTree should not be modified
         (though this is not enforced).
-        
+
         Returns:
             TaprootProgram: Immutable program with address and spend methods
+
+        Raises:
+            BuildError: If duplicate leaf labels are detected
         """
+        from ..errors import BuildError
+
+        labels = [leaf["label"] for leaf in self._leaves]
+        seen = set()
+        dupes = []
+        for l in labels:
+            if l in seen:
+                dupes.append(l)
+            seen.add(l)
+        if dupes:
+            raise BuildError(f"Duplicate leaf labels: {dupes}")
+
         return TaprootProgram(
             internal_key=self._internal_key,
             leaves=self._leaves,
