@@ -237,6 +237,24 @@ class SpendBuilder:
 
         return psbt
 
+    def to_psbt_v2(self):
+        """
+        Build unsigned transaction as PSBT v2 (BIP 370) for multi-party signing.
+
+        Returns:
+            PsbtV2 object (call .sign_with(), .finalize(), .extract_transaction())
+        """
+        from ..errors import BuildError
+        from ..psbt import Psbt, PsbtV2
+
+        if not self._utxos:
+            raise BuildError("No UTXO specified. Call .from_utxo() or .from_utxos() first.")
+        if not self._outputs:
+            raise BuildError("No outputs specified. Call .to() first.")
+
+        psbt_v0 = self.to_psbt()
+        return PsbtV2.from_psbt_v0(psbt_v0)
+
     def _build_unsigned_tx(self):
         """Build transaction structure without signing (for PSBT)."""
         from bitcoinutils.transactions import Transaction as BUTransaction

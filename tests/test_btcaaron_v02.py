@@ -697,6 +697,154 @@ class TestPsbtFlow:
         tx = psbt_v2_loaded.extract_transaction()
         assert tx.get_txid() == txid_expected
 
+    def test_psbt_v2_native_flow(self, program, keys):
+        """PSBT v2 native flow: to_psbt_v2() → sign → finalize → extract, TXID matches v0."""
+        tx_v0 = (program.spend("2of2")
+            .from_utxo("e" * 64, 0, sats=1100)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 600)
+            .sign(keys["alice"], keys["bob"])
+            .build())
+        txid_v0 = tx_v0.txid
+
+        psbt_v2 = (program.spend("2of2")
+            .from_utxo("e" * 64, 0, sats=1100)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 600)
+            .to_psbt_v2())
+        psbt_v2.sign_with(keys["alice"], 0)
+        psbt_v2.sign_with(keys["bob"], 0)
+        psbt_v2.finalize()
+        tx_v2 = psbt_v2.extract_transaction()
+        txid_v2 = tx_v2.get_txid() if hasattr(tx_v2, 'get_txid') else tx_v2.txid
+        assert txid_v2 == txid_v0
+
+    def test_psbt_v2_native_base64_roundtrip(self, program, keys):
+        """PSBT v2: to_psbt_v2 → sign → finalize → to_base64 → from_base64 → extract."""
+        psbt_v2 = (program.spend("2of2")
+            .from_utxo("f" * 64, 0, sats=950)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 450)
+            .to_psbt_v2())
+        psbt_v2.sign_with(keys["alice"], 0)
+        psbt_v2.sign_with(keys["bob"], 0)
+        psbt_v2.finalize()
+        txid_expected = psbt_v2.extract_transaction().get_txid()
+
+        b64 = psbt_v2.to_base64()
+        loaded = PsbtV2.from_base64(b64)
+        tx = loaded.extract_transaction()
+        assert tx.get_txid() == txid_expected
+
+    def test_psbt_v2_incremental_flow(self, program, keys):
+        """PSBT v2 incremental: empty → add_input → add_output → sign → finalize, TXID matches to_psbt_v2."""
+        ref = (program.spend("2of2")
+            .from_utxo("a1" * 32, 0, sats=1200)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 550)
+            .to_psbt_v2())
+        r0 = ref.inputs[0]
+        o0 = ref.outputs[0]
+
+        inc = PsbtV2()
+        inc.add_input(
+            r0.previous_txid.hex(), r0.output_index, r0.witness_utxo[0], r0.witness_utxo[1],
+            sequence=r0.sequence,
+            tap_internal_key=r0.tap_internal_key, tap_merkle_root=r0.tap_merkle_root,
+            tap_leaf_script=r0.tap_leaf_script, _tapleaf_script_obj=r0._tapleaf_script_obj,
+        )
+        inc.add_output(o0.amount, o0.script_pubkey)
+
+        inc.sign_with(keys["alice"], 0)
+        inc.sign_with(keys["bob"], 0)
+        inc.finalize()
+
+        ref.sign_with(keys["alice"], 0)
+        ref.sign_with(keys["bob"], 0)
+        ref.finalize()
+
+        assert inc.extract_transaction().get_txid() == ref.extract_transaction().get_txid()
+
+    def test_psbt_v2_incremental_base64_roundtrip(self, program, keys):
+        """PSBT v2 incremental flow → to_base64 → from_base64 → extract."""
+        ref = (program.spend("2of2")
+            .from_utxo("b2" * 32, 0, sats=1050)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 520)
+            .to_psbt_v2())
+        r0, o0 = ref.inputs[0], ref.outputs[0]
+
+        inc = PsbtV2()
+        inc.add_input(
+            r0.previous_txid.hex(), r0.output_index, r0.witness_utxo[0], r0.witness_utxo[1],
+            sequence=r0.sequence,
+            tap_internal_key=r0.tap_internal_key, tap_merkle_root=r0.tap_merkle_root,
+            tap_leaf_script=r0.tap_leaf_script, _tapleaf_script_obj=r0._tapleaf_script_obj,
+        )
+        inc.add_output(o0.amount, o0.script_pubkey)
+        inc.sign_with(keys["alice"], 0)
+        inc.sign_with(keys["bob"], 0)
+        inc.finalize()
+        txid_expected = inc.extract_transaction().get_txid()
+
+        b64 = inc.to_base64()
+        loaded = PsbtV2.from_base64(b64)
+        assert loaded.extract_transaction().get_txid() == txid_expected
+
+    def test_psbt_v2_from_v0_base64(self, program, keys):
+        """PsbtV2.from_v0_base64 parses v0 base64 and yields equivalent PsbtV2."""
+        psbt_v0 = (program.spend("2of2")
+            .from_utxo("c3" * 32, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .to_psbt())
+        b64_v0 = psbt_v0.to_base64()
+        v2 = PsbtV2.from_v0_base64(b64_v0)
+        assert len(v2.inputs) == 1
+        assert len(v2.outputs) == 1
+        assert v2.inputs[0].witness_utxo[0] == 1000
+        assert v2.outputs[0].amount == 500
+
+    def test_psbt_v2_two_in_two_out(self, program, keys):
+        """2-in-2-out trade: both parties add inputs/outputs, sign, finalize; TXID matches direct build."""
+        # Direct build (reference)
+        tx_direct = (program.spend("2of2")
+            .from_utxos([("a1" * 32, 0, 600), ("b2" * 32, 1, 400)])
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .to(DEST_ADDRESS, 400)
+            .sign(keys["alice"], keys["bob"])
+            .build())
+        # PSBT v2 flow: Alice signs input 0, Bob signs input 0, Alice signs input 1, Bob signs input 1
+        psbt = (program.spend("2of2")
+            .from_utxos([("a1" * 32, 0, 600), ("b2" * 32, 1, 400)])
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .to(DEST_ADDRESS, 400)
+            .to_psbt_v2())
+        psbt.sign_with(keys["alice"], 0)
+        psbt.sign_with(keys["bob"], 0)
+        psbt.sign_with(keys["alice"], 1)
+        psbt.sign_with(keys["bob"], 1)
+        psbt.finalize()
+        tx_psbt = psbt.extract_transaction()
+        assert tx_psbt.get_txid() == tx_direct.txid
+        assert tx_direct.fee == 100
+
+    def test_psbt_v2_multi_input_to_psbt_v2(self, program, keys):
+        """Multi-input to_psbt_v2: 2-in-1-out consolidation produces same TXID as direct build."""
+        tx_direct = (program.spend("2of2")
+            .from_utxos([("e1" * 32, 0, 800), ("f2" * 32, 1, 600)])
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 1200)
+            .sign(keys["alice"], keys["bob"])
+            .build())
+        psbt = (program.spend("2of2")
+            .from_utxos([("e1" * 32, 0, 800), ("f2" * 32, 1, 600)])
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 1200)
+            .to_psbt_v2())
+        assert len(psbt.inputs) == 2
+        assert len(psbt.outputs) == 1
+        psbt.sign_with(keys["alice"], 0)
+        psbt.sign_with(keys["bob"], 0)
+        psbt.sign_with(keys["alice"], 1)
+        psbt.sign_with(keys["bob"], 1)
+        psbt.finalize()
+        tx_psbt = psbt.extract_transaction()
+        assert tx_psbt.get_txid() == tx_direct.txid
+        assert tx_direct.fee == 200
+
 
 # ============================================================================
 # quick_transfer taproot path (v0.2 flow)

@@ -367,11 +367,26 @@ class PsbtV2Output:
 
 class PsbtV2:
     """
-    PSBT Version 2 (BIP 370) skeleton.
+    PSBT Version 2 (BIP 370).
 
     Tx structure lives in per-input/output maps instead of global unsigned_tx.
-    Enables incremental construction (add inputs/outputs after creation).
-    BIP 371 Taproot fields unchanged.
+    Supports incremental construction: add_input() / add_output() after creation.
+
+    Example (via builder):
+        psbt = program.spend("2of2").from_utxo(...).to(...).to_psbt_v2()
+        psbt.sign_with(alice, 0)
+        psbt.sign_with(bob, 0)
+        psbt.finalize()
+        tx = psbt.extract_transaction()
+
+    Example (incremental):
+        v2 = PsbtV2()
+        v2.add_input(prev_txid, vout, amount, script_pubkey, tap_internal_key=..., tap_leaf_script=...)
+        v2.add_output(500, output_script_pubkey)
+        v2.sign_with(alice, 0)
+        v2.sign_with(bob, 0)
+        v2.finalize()
+        tx = v2.extract_transaction()
     """
 
     def __init__(self):
@@ -379,6 +394,60 @@ class PsbtV2:
         self.fallback_locktime: int = 0
         self.inputs: List[PsbtV2Input] = []
         self.outputs: List[PsbtV2Output] = []
+
+    def add_input(
+        self,
+        prev_txid: str,
+        output_index: int,
+        amount_sats: int,
+        script_pubkey: bytes,
+        *,
+        sequence: int = 0xFFFFFFFF,
+        tap_internal_key: Optional[bytes] = None,
+        tap_merkle_root: Optional[bytes] = None,
+        tap_leaf_script: Optional[Tuple[bytes, bytes]] = None,
+        _tapleaf_script_obj=None,
+        _tapleaf_scripts_for_tweak=None,
+    ) -> "PsbtV2":
+        """
+        Add an input (incremental construction).
+        prev_txid: 64-char hex; amount_sats > 0; script_pubkey: raw bytes.
+        """
+        if len(prev_txid) != 64 or not all(c in "0123456789abcdefABCDEF" for c in prev_txid):
+            raise ValueError("prev_txid must be 64 hex chars")
+        if amount_sats <= 0:
+            raise ValueError("amount_sats must be positive")
+        if not script_pubkey:
+            raise ValueError("script_pubkey cannot be empty")
+        inp = PsbtV2Input()
+        inp.previous_txid = bytes.fromhex(prev_txid) if isinstance(prev_txid, str) else prev_txid
+        inp.output_index = output_index
+        inp.sequence = sequence
+        inp.witness_utxo = (amount_sats, script_pubkey)
+        if tap_internal_key:
+            inp.tap_internal_key = tap_internal_key[:32]
+        if tap_merkle_root is not None and len(tap_merkle_root) == 32:
+            inp.tap_merkle_root = tap_merkle_root
+        if tap_leaf_script:
+            inp.tap_leaf_script = tap_leaf_script
+        if _tapleaf_script_obj is not None:
+            inp._tapleaf_script_obj = _tapleaf_script_obj
+        if _tapleaf_scripts_for_tweak is not None:
+            inp._tapleaf_scripts_for_tweak = _tapleaf_scripts_for_tweak
+        self.inputs.append(inp)
+        return self
+
+    def add_output(self, amount_sats: int, script_pubkey: bytes) -> "PsbtV2":
+        """Add an output (incremental construction). amount_sats > 0; script_pubkey: raw bytes."""
+        if amount_sats <= 0:
+            raise ValueError("amount_sats must be positive")
+        if not script_pubkey:
+            raise ValueError("script_pubkey cannot be empty")
+        out = PsbtV2Output()
+        out.amount = amount_sats
+        out.script_pubkey = script_pubkey
+        self.outputs.append(out)
+        return self
 
     @classmethod
     def from_psbt_v0(cls, psbt: Psbt) -> "PsbtV2":
@@ -399,6 +468,8 @@ class PsbtV2:
             v2in.tap_script_sigs = dict(inp.tap_script_sigs)
             v2in.final_script_witness = inp.final_script_witness
             v2in._tapleaf_script_obj = inp._tapleaf_script_obj
+            if hasattr(inp, '_tapleaf_scripts_for_tweak'):
+                v2in._tapleaf_scripts_for_tweak = inp._tapleaf_scripts_for_tweak
             bu_in = bu_tx.inputs[i]
             v2in.previous_txid = bytes.fromhex(bu_in.txid) if isinstance(bu_in.txid, str) else bu_in.txid
             v2in.output_index = bu_in.txout_index
@@ -412,6 +483,12 @@ class PsbtV2:
             v2out.script_pubkey = spk.to_bytes() if hasattr(spk, "to_bytes") else bytes.fromhex(spk.to_hex())
             v2.outputs.append(v2out)
         return v2
+
+    @classmethod
+    def from_v0_base64(cls, b64: str) -> "PsbtV2":
+        """Parse v0 PSBT from base64, return as PsbtV2. For interop with v0-only tools."""
+        psbt = Psbt.from_base64(b64)
+        return cls.from_psbt_v0(psbt)
 
     @classmethod
     def from_base64(cls, b64: str) -> "PsbtV2":
@@ -551,8 +628,8 @@ class PsbtV2:
             parts.append(b"\x00")
         return base64.b64encode(b"".join(parts)).decode("ascii")
 
-    def extract_transaction(self):
-        """Assemble bitcoinutils Transaction from v2 maps."""
+    def _build_tx(self, fill_witnesses: bool = True):
+        """Build bitcoinutils Transaction from v2 maps. For signing, use fill_witnesses=False."""
         from bitcoinutils.transactions import Transaction, TxInput, TxOutput, TxWitnessInput
         from bitcoinutils.script import Script
 
@@ -573,8 +650,85 @@ class PsbtV2:
         tx = Transaction(txins, txouts, has_segwit=True)
         while len(tx.witnesses) < len(tx.inputs):
             tx.witnesses.append(TxWitnessInput([]))
-        for i, inp in enumerate(self.inputs):
-            if inp.final_script_witness:
-                stack = [w.hex() if isinstance(w, bytes) else w for w in inp.final_script_witness]
-                tx.witnesses[i] = TxWitnessInput(stack)
+        if fill_witnesses:
+            for i, inp in enumerate(self.inputs):
+                if inp.final_script_witness:
+                    stack = [w.hex() if isinstance(w, bytes) else w for w in inp.final_script_witness]
+                    tx.witnesses[i] = TxWitnessInput(stack)
         return tx
+
+    def sign_with(self, key: "Key", input_index: int = 0) -> None:
+        """Add Taproot signature for input (same logic as Psbt.sign_with)."""
+        psbtin = self.inputs[input_index]
+        if not psbtin.witness_utxo:
+            raise ValueError(f"Missing witness UTXO for input {input_index}")
+
+        tx = self._build_tx(fill_witnesses=False)
+        script_pub_keys = []
+        amounts = []
+        for inp in self.inputs:
+            amt, spk = inp.witness_utxo
+            amounts.append(amt)
+            try:
+                from bitcoinutils.script import Script
+                spk_obj = Script.from_raw(spk.hex(), has_segwit=True)
+            except Exception:
+                from bitcoinutils.script import Script
+                spk_obj = Script([spk.hex()])
+            script_pub_keys.append(spk_obj)
+
+        if psbtin.tap_leaf_script:
+            script_bytes, _ = psbtin.tap_leaf_script
+            if psbtin._tapleaf_script_obj is not None:
+                tapleaf = psbtin._tapleaf_script_obj
+            else:
+                from bitcoinutils.script import Script
+                tapleaf = Script.from_raw(script_bytes.hex(), has_segwit=True)
+            sig = key._internal.sign_taproot_input(
+                tx, input_index, script_pub_keys, amounts,
+                script_path=True, tapleaf_script=tapleaf, tweak=False
+            )
+            from .tree import tapmath
+            leaf_hash = tapmath.tapleaf_hash(script_bytes)
+            pk = bytes.fromhex(key.xonly)
+            sig_bytes = sig if isinstance(sig, bytes) else (bytes.fromhex(sig) if isinstance(sig, str) else sig)
+            if hasattr(sig_bytes, '__iter__') and not isinstance(sig_bytes, (bytes, str)):
+                sig_bytes = bytes(sig_bytes)
+            psbtin.tap_script_sigs[(pk, leaf_hash)] = sig_bytes
+        else:
+            scripts_for_tweak = getattr(psbtin, '_tapleaf_scripts_for_tweak', None) or []
+            sig = key._internal.sign_taproot_input(
+                tx, input_index, script_pub_keys, amounts,
+                script_path=False, tapleaf_scripts=scripts_for_tweak
+            )
+            sig_bytes = sig if isinstance(sig, bytes) else bytes.fromhex(sig)
+            psbtin.tap_key_sig = sig_bytes
+
+    def finalize(self) -> None:
+        """Build final witnesses (same logic as Psbt.finalize)."""
+        for i, inp in enumerate(self.inputs):
+            if inp.tap_key_sig:
+                sig_b = inp.tap_key_sig
+                inp.final_script_witness = [sig_b if isinstance(sig_b, bytes) else bytes.fromhex(sig_b)]
+            elif inp.tap_leaf_script and inp.tap_script_sigs:
+                script_bytes, control_block = inp.tap_leaf_script
+                from .tree import tapmath
+                leaf_hash = tapmath.tapleaf_hash(script_bytes)
+                sigs_by_pk = {}
+                for (pk, lh), sig in inp.tap_script_sigs.items():
+                    if lh == leaf_hash:
+                        pk_bytes = pk if isinstance(pk, bytes) else bytes.fromhex(pk) if isinstance(pk, str) else pk
+                        sigs_by_pk[pk_bytes] = sig.hex() if isinstance(sig, bytes) else sig
+                pubkey_order = _tapscript_pubkey_order(script_bytes)
+                if pubkey_order:
+                    sigs = [sigs_by_pk[pk] for pk in reversed(pubkey_order) if pk in sigs_by_pk]
+                else:
+                    sigs = list(sigs_by_pk.values())
+                witness_stack = sigs + [script_bytes.hex(), control_block.hex()]
+                inp.final_script_witness = [bytes.fromhex(x) if isinstance(x, str) else x for x in witness_stack]
+            else:
+                raise ValueError(f"Cannot finalize input {i}: missing signature")
+
+    def extract_transaction(self):
+        """Assemble bitcoinutils Transaction from v2 maps."""
+        return self._build_tx(fill_witnesses=True)
