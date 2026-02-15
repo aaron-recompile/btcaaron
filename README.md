@@ -150,6 +150,11 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
 - **Testnet Only**: This toolkit is designed for testnet use. Mainnet support may be added in future versions.
 - **v0.2.0 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
 
+## Acknowledgments
+
+Development of btcaaron is supported by an [OpenSats](https://opensats.org) grant.  
+OpenSats supports open-source contributors working on Bitcoin and related freedom tech.
+
 ## Author
 
 **Aaron Zhang**  
