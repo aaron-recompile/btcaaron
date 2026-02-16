@@ -682,6 +682,38 @@ class TestQuickTransferTaproot:
 
 
 # ============================================================================
+# Duplicate Label Rejection Tests
+# ============================================================================
+
+class TestDuplicateLabelRejection:
+    """Test that duplicate leaf labels are rejected at build time."""
+
+    @pytest.fixture
+    def keys(self):
+        return {
+            "alice": Key.from_wif(ALICE_WIF),
+            "bob": Key.from_wif(BOB_WIF),
+        }
+
+    def test_duplicate_labels_raise_build_error(self, keys):
+        """Duplicate labels should raise BuildError"""
+        from btcaaron.errors import BuildError
+        with pytest.raises(BuildError, match="Duplicate leaf labels"):
+            (TapTree(internal_key=keys["alice"])
+                .checksig(keys["bob"], label="same")
+                .checksig(keys["bob"], label="same")
+            ).build()
+
+    def test_unique_labels_work(self, keys):
+        """Unique labels should build fine"""
+        prog = (TapTree(internal_key=keys["alice"])
+            .checksig(keys["bob"], label="a")
+            .checksig(keys["bob"], label="b")
+        ).build()
+        assert prog.num_leaves == 2
+
+
+# ============================================================================
 # Run Tests
 # ============================================================================
 
