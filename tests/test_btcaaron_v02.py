@@ -714,6 +714,64 @@ class TestDuplicateLabelRejection:
 
 
 # ============================================================================
+# Balanced Tree Builder Tests
+# ============================================================================
+
+class TestBalancedTree:
+    """Test that TapTree supports arbitrary leaf counts, not just 1/2/4."""
+
+    @pytest.fixture
+    def keys(self):
+        return {
+            "alice": Key.from_wif(ALICE_WIF),
+            "bob": Key.from_wif(BOB_WIF),
+        }
+
+    def test_three_leaf_tree(self, keys):
+        """3-leaf tree should build successfully"""
+        prog = (TapTree(internal_key=keys["alice"])
+            .hashlock("secret", label="hash")
+            .checksig(keys["bob"], label="bob")
+            .timelock(blocks=10, then=keys["bob"], label="csv")
+        ).build()
+        assert prog.address.startswith("tb1p")
+        assert prog.num_leaves == 3
+        assert set(prog.leaves) == {"hash", "bob", "csv"}
+
+    def test_five_leaf_tree(self, keys):
+        """5-leaf tree should build successfully"""
+        prog = (TapTree(internal_key=keys["alice"])
+            .hashlock("a", label="h1")
+            .hashlock("b", label="h2")
+            .checksig(keys["bob"], label="sig")
+            .timelock(blocks=5, then=keys["bob"], label="csv")
+            .multisig(2, [keys["alice"], keys["bob"]], label="multi")
+        ).build()
+        assert prog.address.startswith("tb1p")
+        assert prog.num_leaves == 5
+
+    def test_six_and_eight_leaf_trees(self, keys):
+        """6 and 8 leaf trees should build successfully"""
+        for n in [6, 8]:
+            tree = TapTree(internal_key=keys["alice"])
+            for i in range(n):
+                tree = tree.checksig(keys["bob"], label=f"leaf{i}")
+            prog = tree.build()
+            assert prog.address.startswith("tb1p")
+            assert prog.num_leaves == n
+
+    def test_existing_1_2_4_unchanged(self, keys):
+        """1, 2, 4 leaf trees should still produce valid addresses"""
+        for n in [1, 2, 4]:
+            tree = TapTree(internal_key=keys["alice"])
+            for i in range(n):
+                tree = tree.checksig(keys["bob"], label=f"l{i}")
+            prog = tree.build()
+            assert prog.address.startswith("tb1p")
+            assert prog.num_leaves == n
+
+
+# ============================================================================
 # Run Tests
 # ============================================================================
 

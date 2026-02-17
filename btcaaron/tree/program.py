@@ -146,14 +146,8 @@ class TaprootProgram:
 
             if len(scripts) == 0:
                 tree = None
-            elif len(scripts) == 1:
-                tree = scripts[0]
-            elif len(scripts) == 2:
-                tree = [scripts[0], scripts[1]]
-            elif len(scripts) == 4:
-                tree = [[scripts[0], scripts[1]], [scripts[2], scripts[3]]]
             else:
-                tree = scripts
+                tree = self._build_balanced_tree(scripts)
 
             self._tree = tree
 
@@ -165,6 +159,18 @@ class TaprootProgram:
             self._address = addr.to_string()
             self._addr_obj = addr
     
+    @staticmethod
+    def _build_balanced_tree(scripts):
+        """Build a balanced nested list for bitcoin-utils from a flat script list."""
+        if len(scripts) == 1:
+            return scripts[0]
+        if len(scripts) == 2:
+            return [scripts[0], scripts[1]]
+        mid = len(scripts) // 2
+        left = TaprootProgram._build_balanced_tree(scripts[:mid])
+        right = TaprootProgram._build_balanced_tree(scripts[mid:])
+        return [left, right]
+
     @property
     def address(self) -> str:
         return self._address
