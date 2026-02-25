@@ -6,11 +6,8 @@ Designed for reproducible testnet experiments, educational workflows, and script
 
 ## Current Status
 
-**v0.1.2** — Stable foundation release.  
-Core utilities actively used in my Taproot engineering work and on-chain experiments.
-
-**v0.2.0** — Core Taproot spend-path prototype implemented and testnet-verified.  
-All 5 spend paths working with real transactions. Next: hardening, PSBT support, and comprehensive documentation. See [DESIGN.md](./DESIGN.md) for roadmap.
+**v0.2.1 (alpha preview)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
+Current focus is release hardening: broader validation coverage, documentation alignment, and contributor testing feedback.
 
 ## Features
 
@@ -24,7 +21,7 @@ Production-tested on testnet with real transactions:
 - Broadcast to Blockstream / Mempool endpoints
 - Developer helpers (`WIFKey`, `quick_transfer`)
 
-### Available Now (v0.2.0 - Prototype)
+### Available Now (v0.2.1 - Alpha Preview)
 
 Testnet-verified with real transactions (23 tests, all passing):
 
@@ -36,7 +33,7 @@ Testnet-verified with real transactions (23 tests, all passing):
 
 ### Future (v0.3.x+)
 
-- PSBT v2 support (Taproot-aware)
+- PSBT v2 hardening and broader interoperability validation
 - Custom script templates
 - Multi-input/output transactions
 
@@ -77,7 +74,7 @@ if balance > 1000:
     print("Broadcasted:", txid)
 ```
 
-## v0.2.0 API Example
+## v0.2.1 API Example
 
 *Taproot-native API — core features available now.*
 
@@ -122,11 +119,11 @@ python -m pytest tests/
 Run specific test suites:
 
 ```bash
-# v0.2.0 comprehensive tests (pytest)
-python -m pytest tests/test_btcaaron_v0.2.py -v
+# v0.2.1 comprehensive tests (pytest)
+python -m pytest tests/test_btcaaron_v02.py -v
 
 # v0.1.x example-based tests
-python tests/test_btcaaron_v0.1.py
+python tests/test_btcaaron_v01.py
 ```
 
 ## Project Structure
@@ -148,7 +145,8 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
 ## Notes
 
 - **Testnet Only**: This toolkit is designed for testnet use. Mainnet support may be added in future versions.
-- **v0.2.0 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
+- **Mainnet Caution**: Any mainnet use should be treated as experimental; do not use with production funds.
+- **v0.2.1 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
 
 ## Acknowledgments
 
