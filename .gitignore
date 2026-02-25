@@ -25,6 +25,8 @@ _reference/
 # Examples: Mastering Taproot book rewrite, code-size comparison
 # Kept locally for context; not part of btcaaron distribution
 examples/
+!examples/
+examples/*
 !examples/core_test/
 !examples/core_test/**
 
