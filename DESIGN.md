@@ -1,8 +1,8 @@
 # btcaaron Architecture Design
 
 > **Version**: 1.0.0-draft  
-> **Status**: In Development  
-> **Last Updated**: 2026-01
+> **Status**: Alpha Preview, Core-Testing Ready  
+> **Last Updated**: 2026-02
 
 ## Vision
 
@@ -194,25 +194,26 @@ btcaaron/
 - [x] Milestone: Generate correct 4-leaf Taproot address
 
 ### Phase 2: Spending Paths (Month 2-3)
-- [ ] `SpendBuilder` core structure
-- [ ] Script path spending (hashlock, checksig, multisig, timelock)
-- [ ] Key path spending
-- [ ] Milestone: Reproduce all Chapter 8 transactions
+- [x] `SpendBuilder` core structure
+- [x] Script path spending (hashlock, checksig, multisig, timelock)
+- [x] Key path spending
+- [x] Milestone: Reproduce all Chapter 8 transactions
 
 ### Phase 3: Network & PSBT (Month 3-4)
-- [ ] Provider implementations (Mempool, Blockstream)
-- [ ] Multi-provider broadcast with failover
-- [ ] PSBT v2 support (Taproot-aware)
+- [x] Provider implementations (Mempool, Blockstream)
+- [x] Multi-provider broadcast with failover
+- [x] PSBT v2 support (Taproot-aware)
 
 ### Phase 4: Visualization & Education (Month 4-5)
-- [ ] `.explain()` for Program and Transaction
-- [ ] ASCII/Mermaid tree visualization
+- [x] `.explain()` for Program and Transaction
+- [x] ASCII tree visualization
+- [ ] Mermaid tree visualization export
 - [ ] Script execution simulator
 
 ### Phase 5: Polish & Release (Month 5-6)
 - [ ] Comprehensive test suite
-- [ ] Documentation and tutorials
-- [ ] Community testing
+- [ ] Documentation and tutorials (ongoing)
+- [ ] Community testing (ongoing)
 - [ ] v1.0.0 release
 
 ## Validation Criteria

@@ -4,6 +4,8 @@ A pragmatic Bitcoin toolkit with a clear path toward full Taproot engineering.
 
 Designed for reproducible testnet experiments, educational workflows, and script-path development.
 
+If you find btcaaron useful, a GitHub star is appreciated.
+
 ## Current Status
 
 **v0.2.1 (alpha preview)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
