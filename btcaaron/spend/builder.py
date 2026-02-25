@@ -455,9 +455,9 @@ class SpendBuilder:
         
         if address.startswith(('1', 'm', 'n')):
             return P2pkhAddress(address)
-        elif address.startswith(('bc1q', 'tb1q')):
+        elif address.startswith(('bc1q', 'tb1q', 'bcrt1q')):
             return P2wpkhAddress(address)
-        elif address.startswith(('bc1p', 'tb1p')):
+        elif address.startswith(('bc1p', 'tb1p', 'bcrt1p')):
             return P2trAddress(address)
         else:
             raise ValueError(f"Unsupported address format: {address}")
