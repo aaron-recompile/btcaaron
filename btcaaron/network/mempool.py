@@ -14,12 +14,16 @@ class MempoolProvider(Provider):
     """Mempool.space API provider."""
     
     def __init__(self, network: str = "testnet"):
+        self.network = network
         if network == "testnet":
             self.base_url = "https://mempool.space/testnet/api"
         elif network == "mainnet":
             self.base_url = "https://mempool.space/api"
         else:
-            self.base_url = f"https://mempool.space/{network}/api"
+            raise ValueError(
+                f"Unsupported network for MempoolProvider: {network}. "
+                "Use 'testnet' or 'mainnet'."
+            )
     
     def broadcast(self, tx_hex: str) -> Optional[str]:
         try:

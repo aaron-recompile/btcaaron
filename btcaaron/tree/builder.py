@@ -7,7 +7,7 @@ TapTree provides a fluent interface for constructing Taproot script trees.
 from typing import List, Optional, Union, TYPE_CHECKING
 import hashlib
 
-from ..key import Key
+from ..key import Key, set_network
 from .leaf import LeafDescriptor
 from .program import TaprootProgram
 
@@ -42,7 +42,8 @@ class TapTree:
             network: "testnet" | "signet" | "mainnet"
         """
         self._internal_key = internal_key
-        self._network = network
+        # Keep internal network labels consistent with address encoding rules.
+        self._network = set_network(network)
         self._leaves: List[dict] = []  # Temporary storage before build()
         self._leaf_counter = 0
     

@@ -174,6 +174,11 @@ class TaprootProgram:
     @property
     def address(self) -> str:
         return self._address
+
+    @property
+    def network(self) -> str:
+        """Normalized network label: mainnet | testnet | regtest."""
+        return self._network
     
     @property
     def internal_key(self) -> str:

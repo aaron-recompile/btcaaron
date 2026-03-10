@@ -14,10 +14,16 @@ class BlockstreamProvider(Provider):
     """Blockstream.info API provider."""
     
     def __init__(self, network: str = "testnet"):
+        self.network = network
         if network == "testnet":
             self.base_url = "https://blockstream.info/testnet/api"
-        else:
+        elif network == "mainnet":
             self.base_url = "https://blockstream.info/api"
+        else:
+            raise ValueError(
+                f"Unsupported network for BlockstreamProvider: {network}. "
+                "Use 'testnet' or 'mainnet'."
+            )
     
     def broadcast(self, tx_hex: str) -> Optional[str]:
         try:

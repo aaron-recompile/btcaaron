@@ -60,6 +60,7 @@ python3 examples/core_test/scenarios/task2_controlblock_mutation_matrix.py regte
 python3 examples/core_test/scenarios/task3_sig_output_correctness_matrix.py regtest
 python3 examples/core_test/scenarios/task4_policy_consensus_split_matrix.py regtest
 python3 examples/core_test/scenarios/task7_cross_instance_consistency_runner.py testnet3 regtest
+python3 examples/core_test/scenarios/mainnet_readiness_smoke.py
 ```
 
 ## Modes

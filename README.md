@@ -41,13 +41,15 @@ Testnet-verified with real transactions (23 tests, all passing):
 
 ## Requirements
 
-- Python >= 3.7
-- Dependencies: `requests>=2.25.0`, `bitcoin-utils>=0.7.1`
+- Python `>=3.10,<3.13`
+- Dependencies:
+  - `requests>=2.25.0,<3.0.0`
+  - `bitcoin-utils>=0.7.3,<0.8.0`
 
 ## Installation
 
 ```bash
-pip install btcaaron
+python -m pip install btcaaron
 ```
 
 Or from source:
@@ -55,7 +57,17 @@ Or from source:
 ```bash
 git clone https://github.com/aaron-recompile/btcaaron.git
 cd btcaaron
-pip install .
+python -m pip install -e .
+```
+
+### IDE environment tip (important)
+
+Most IDE terminals run `python`/`python3` from the currently selected interpreter.
+Install and run with the same interpreter to avoid mismatched environments:
+
+```bash
+python -m pip install -e .
+btcaaron-doctor
 ```
 
 ## Quick Start
@@ -128,6 +140,21 @@ python -m pytest tests/test_btcaaron_v02.py -v
 python tests/test_btcaaron_v01.py
 ```
 
+## Environment Doctor
+
+Use doctor before reporting install/runtime issues:
+
+```bash
+btcaaron-doctor
+```
+
+If doctor fails, re-install with the same interpreter:
+
+```bash
+python -m pip install -e .
+btcaaron-doctor
+```
+
 ## Project Structure
 
 ```
@@ -146,8 +173,12 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
 
 ## Notes
 
-- **Testnet Only**: This toolkit is designed for testnet use. Mainnet support may be added in future versions.
-- **Mainnet Caution**: Any mainnet use should be treated as experimental; do not use with production funds.
+- **Default safety posture**: testnet/regtest-first for everyday development and experiments.
+- **Mainnet (experimental)**: available behind explicit guardrails in `Transaction.broadcast(...)`.
+- **Mainnet guardrails**:
+  - default call blocks mainnet broadcast unless `allow_mainnet=True`
+  - `dry_run=True` is available for no-side-effect routing checks
+  - recommended smoke script: `python3 examples/core_test/scenarios/mainnet_readiness_smoke.py`
 - **v0.2.1 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
 
 ## Acknowledgments

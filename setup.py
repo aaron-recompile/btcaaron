@@ -11,11 +11,19 @@ setup(
     url="https://x.com/aaron_recompile",
     packages=find_packages(),
     install_requires=[
-         "requests>=2.25.0",
-         "bitcoin-utils>=0.7.1"
+         "requests>=2.25.0,<3.0.0",
+         "bitcoin-utils>=0.7.3,<0.8.0"
     ],
+    entry_points={
+        "console_scripts": [
+            "btcaaron-doctor=btcaaron_doctor:main",
+        ],
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Development Status :: 3 - Alpha",
@@ -23,5 +31,5 @@ setup(
         "Topic :: Software Development :: Libraries",
         "Topic :: Internet :: WWW/HTTP",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.10,<3.13",
 )

@@ -8,8 +8,33 @@ from typing import Optional
 from bitcoinutils.setup import setup
 from bitcoinutils.keys import PrivateKey
 
-# Ensure testnet is set up
-setup('testnet')
+
+def _normalize_network(network: str) -> str:
+    """
+    Normalize app-level network labels to bitcoinutils setup labels.
+
+    bitcoinutils distinguishes mainnet/testnet/regtest. For signet-family
+    networks we use testnet address/version rules.
+    """
+    n = (network or "testnet").lower()
+    if n == "mainnet":
+        return "mainnet"
+    if n == "regtest":
+        return "regtest"
+    return "testnet"
+
+
+def set_network(network: str) -> str:
+    """
+    Set bitcoinutils global network context and return normalized value.
+    """
+    normalized = _normalize_network(network)
+    setup(normalized)
+    return normalized
+
+
+# Default module context remains testnet-first.
+set_network("testnet")
 
 
 class Key:
@@ -79,6 +104,7 @@ class Key:
         Returns:
             Key instance
         """
+        set_network(network)
         private_key = PrivateKey()
         return cls(private_key)
     
