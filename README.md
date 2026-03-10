@@ -1,5 +1,7 @@
 # btcaaron<img src="images/mark.png" width="52" alt="btcaaron mark" style="margin-left:4px;vertical-align:middle" />
 
+[![Supported by OpenSats](https://img.shields.io/badge/supported%20by-OpenSats-orange?style=flat-square&logo=bitcoin)](https://opensats.org)
+
 A pragmatic Bitcoin toolkit with a clear path toward full Taproot engineering.
 
 Designed for reproducible testnet experiments, educational workflows, and script-path development.
@@ -38,6 +40,19 @@ Testnet-verified with real transactions (23 tests, all passing):
 - PSBT v2 hardening and broader interoperability validation
 - Custom script templates
 - Multi-input/output transactions
+
+## Positioning (Quick Comparison)
+
+> High-level developer-experience comparison only (not a full feature matrix).
+
+| Library | Typical Use Case | Script-Path UX |
+|---|---|---|
+| `python-bitcoin-utils` | Low-level transaction/script construction and protocol experiments | Manual (build tree/witness/control-block flow yourself) |
+| `btcaaron` | Fast Taproot prototyping, teaching workflows, and reproducible test scaffolds | Declarative (e.g., `.hashlock()`, `.multisig()`, `.timelock()`) |
+| `BitcoinLib` | Wallet-oriented workflows, account management, and persistence layers | Mostly automated for common wallet flows |
+| `embit` | Descriptor/PSBT flows and hardware-wallet-oriented integrations | Descriptor-oriented, standard-policy paths |
+
+_Optional note_: `btcaaron` is designed as a pragmatic Taproot engineering layer on top of low-level primitives, prioritizing readability and reproducible testing workflows.
 
 ## Requirements
 
