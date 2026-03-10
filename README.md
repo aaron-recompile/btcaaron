@@ -10,7 +10,7 @@ If you find btcaaron useful, a GitHub star is appreciated.
 
 ## Current Status
 
-**v0.2.1 (alpha preview)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
+**v0.2.2 (alpha preview)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
 Current focus is release hardening: broader validation coverage, documentation alignment, and contributor testing feedback.
 
 ## Features
@@ -25,7 +25,7 @@ Production-tested on testnet with real transactions:
 - Broadcast to Blockstream / Mempool endpoints
 - Developer helpers (`WIFKey`, `quick_transfer`)
 
-### Available Now (v0.2.1 - Alpha Preview)
+### Available Now (v0.2.2 - Alpha Preview)
 
 Testnet-verified with real transactions (23 tests, all passing):
 
@@ -103,7 +103,7 @@ if balance > 1000:
     print("Broadcasted:", txid)
 ```
 
-## v0.2.1 API Example
+## v0.2.2 API Example
 
 *Taproot-native API — core features available now.*
 
@@ -148,7 +148,7 @@ python -m pytest tests/
 Run specific test suites:
 
 ```bash
-# v0.2.1 comprehensive tests (pytest)
+# v0.2.2 comprehensive tests (pytest)
 python -m pytest tests/test_btcaaron_v02.py -v
 
 # v0.1.x example-based tests
@@ -194,7 +194,7 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
   - default call blocks mainnet broadcast unless `allow_mainnet=True`
   - `dry_run=True` is available for no-side-effect routing checks
   - recommended smoke script: `python3 examples/core_test/scenarios/mainnet_readiness_smoke.py`
-- **v0.2.1 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
+- **v0.2.2 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
 
 ## Acknowledgments
 
