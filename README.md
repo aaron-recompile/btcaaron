@@ -85,25 +85,7 @@ python -m pip install -e .
 btcaaron-doctor
 ```
 
-## Quick Start
-
-```python
-from btcaaron import WIFKey, quick_transfer
-
-wif = "your_testnet_wif"
-
-key = WIFKey(wif)
-print("Taproot:", key.get_taproot().address)
-
-balance = key.get_taproot().get_balance()
-print("Balance:", balance, "sats")
-
-if balance > 1000:
-    txid = quick_transfer(wif, "taproot", "tb1q...", amount=500, fee=300)
-    print("Broadcasted:", txid)
-```
-
-## v0.2.2 API Example
+## Quick Start (v0.2.2)
 
 *Taproot-native API — core features available now.*
 
@@ -133,6 +115,26 @@ tx = (program.spend("hash")
     .build())
 
 tx.broadcast()
+```
+
+## Legacy Quick Start (v0.1.x)
+
+For backward compatibility with the v0.1.x API:
+
+```python
+from btcaaron import WIFKey, quick_transfer
+
+wif = "your_testnet_wif"
+
+key = WIFKey(wif)
+print("Taproot:", key.get_taproot().address)
+
+balance = key.get_taproot().get_balance()
+print("Balance:", balance, "sats")
+
+if balance > 1000:
+    txid = quick_transfer(wif, "taproot", "tb1q...", amount=500, fee=300)
+    print("Broadcasted:", txid)
 ```
 
 Full specification in [DESIGN.md](./DESIGN.md).
