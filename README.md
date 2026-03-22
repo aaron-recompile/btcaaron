@@ -8,7 +8,7 @@ Designed for reproducible testnet experiments, educational workflows, and script
 
 If you find btcaaron useful, a GitHub star is appreciated.
 
-👉 Looking for Bitcoin Inquisition experimental opcode templates (OP_CAT / CSFS / CTV)? See `INQUISITION.md`.
+👉 Looking for Bitcoin Inquisition experimental opcode templates (OP_CAT / CSFS / CTV)? See **[INQUISITION.md](INQUISITION.md)**.
 
 ## Current Status
 

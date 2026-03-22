@@ -35,6 +35,17 @@ cat_program = TapTree(internal_key=key, network="signet").custom(
 ).build()
 ```
 
+## Further reading
+
+**Companion repo (binding-target experiments):** [bitcoin-signature-binding](https://github.com/aaron-recompile/bitcoin-signature-binding) — reproducible offline JSON + optional Signet scripts comparing message-bound CSFS, identity-bound internal-key+CSFS, and sighash-bound CHECKSIG.
+
+**Signet / Inquisition blog series (Medium):**
+
+- [OP_CAT on Signet — concatenation, commitment, Bitcoin Inquisition](https://medium.com/@aaron.recompile/op-cat-on-signet-concatenation-commitment-and-bitcoin-inquisition-ed34a07866d6)
+- [OP_CHECKSIGFROMSTACK on Signet — sign anything, verify on stack](https://medium.com/@aaron.recompile/op-checksigfromstack-on-signet-sign-anything-verify-on-stack-9cf70ab07583)
+- [OP_CHECKTEMPLATEVERIFY on Signet — locking outputs at UTXO creation time](https://medium.com/@aaron.recompile/op-checktemplateverify-on-signet-locking-outputs-at-utxo-creation-time-1d623fbe3899)
+- [OP_INTERNALKEY + OP_CHECKSIGFROMSTACK on Signet — identity-bound authorization](https://medium.com/@aaron.recompile/op-internalkey-op-checksigfromstack-on-signet-identity-bound-authorization-04f0440557bc)
+
 ## Notes
 
 - Transaction relay can differ from consensus acceptance on mixed peer sets.
