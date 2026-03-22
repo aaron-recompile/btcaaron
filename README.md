@@ -8,9 +8,11 @@ Designed for reproducible testnet experiments, educational workflows, and script
 
 If you find btcaaron useful, a GitHub star is appreciated.
 
+👉 Looking for Bitcoin Inquisition experimental opcode templates (OP_CAT / CSFS / CTV)? See `INQUISITION.md`.
+
 ## Current Status
 
-**v0.2.2 (alpha preview)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
+**v0.2.3 (alpha preview)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
 Current focus is release hardening: broader validation coverage, documentation alignment, and contributor testing feedback.
 
 ## Features
@@ -25,7 +27,7 @@ Production-tested on testnet with real transactions:
 - Broadcast to Blockstream / Mempool endpoints
 - Developer helpers (`WIFKey`, `quick_transfer`)
 
-### Available Now (v0.2.2 - Alpha Preview)
+### Available Now (v0.2.3 - Alpha Preview)
 
 Testnet-verified with real transactions (23 tests, all passing):
 
@@ -85,7 +87,7 @@ python -m pip install -e .
 btcaaron-doctor
 ```
 
-## Quick Start (v0.2.2)
+## Quick Start (v0.2.3)
 
 *Taproot-native API — core features available now.*
 
@@ -137,6 +139,31 @@ if balance > 1000:
     print("Broadcasted:", txid)
 ```
 
+## Descriptor Wallet Quick Start (tprv/xpriv)
+
+For descriptor-style HD wallet flows (RGB-friendly), derive directly from `tprv`:
+
+```python
+from btcaaron import taproot_balance_from_tprv, quick_transfer_tprv, taproot_descriptor_from_tprv
+
+tprv = "tprv8ZgxMBicQKs..."
+print(taproot_descriptor_from_tprv(tprv, branch=0))  # tr(tprv.../86h/1h/0h/0/*)
+
+balance = taproot_balance_from_tprv(tprv, branch=0, index=0)
+print("Balance:", balance, "sats")
+
+txid = quick_transfer_tprv(
+    tprv,
+    "tb1p...",
+    amount=10_000,
+    fee=800,
+    branch=0,
+    index=0,
+    debug=True,
+)
+print("Broadcasted:", txid)
+```
+
 Full specification in [DESIGN.md](./DESIGN.md).
 
 ## Testing
@@ -150,7 +177,7 @@ python -m pytest tests/
 Run specific test suites:
 
 ```bash
-# v0.2.2 comprehensive tests (pytest)
+# v0.2.3 comprehensive tests (pytest)
 python -m pytest tests/test_btcaaron_v02.py -v
 
 # v0.1.x example-based tests
@@ -196,7 +223,7 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
   - default call blocks mainnet broadcast unless `allow_mainnet=True`
   - `dry_run=True` is available for no-side-effect routing checks
   - recommended smoke script: `python3 examples/core_test/scenarios/mainnet_readiness_smoke.py`
-- **v0.2.2 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
+- **v0.2.3 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
 
 ## Acknowledgments
 

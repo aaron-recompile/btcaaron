@@ -524,6 +524,65 @@ def quick_transfer(wif: str, from_type: str, to_addr: str, amount: int,
         return None
 
 
+def taproot_balance_from_tprv(
+    tprv: str,
+    *,
+    branch: int = 0,
+    index: int = 0,
+    purpose: int = 86,
+    coin_type: Optional[int] = None,
+    account: int = 0,
+    network: str = "testnet",
+    debug: bool = False,
+) -> int:
+    """
+    One-liner helper: derive taproot key from tprv/xpriv and query balance.
+    """
+    from .key import derive_wif_from_tprv
+
+    wif = derive_wif_from_tprv(
+        tprv,
+        branch=branch,
+        index=index,
+        purpose=purpose,
+        coin_type=coin_type,
+        account=account,
+        network=network,
+    )
+    return WIFKey(wif).get_taproot().get_balance(debug=debug)
+
+
+def quick_transfer_tprv(
+    tprv: str,
+    to_addr: str,
+    amount: int,
+    *,
+    fee: int = DEFAULT_FEE,
+    branch: int = 0,
+    index: int = 0,
+    purpose: int = 86,
+    coin_type: Optional[int] = None,
+    account: int = 0,
+    network: str = "testnet",
+    debug: bool = False,
+) -> Optional[str]:
+    """
+    One-liner helper: derive taproot key from tprv/xpriv and send sats.
+    """
+    from .key import derive_wif_from_tprv
+
+    wif = derive_wif_from_tprv(
+        tprv,
+        branch=branch,
+        index=index,
+        purpose=purpose,
+        coin_type=coin_type,
+        account=account,
+        network=network,
+    )
+    return quick_transfer(wif, "taproot", to_addr, amount=amount, fee=fee, debug=debug)
+
+
 def fund_program(
     wif: str,
     program: "TaprootProgram",

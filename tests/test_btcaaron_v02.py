@@ -8,8 +8,31 @@ Run with: pytest tests/test_btcaaron_v0.2.py -v
 """
 
 import pytest
+import hashlib
 from unittest.mock import patch
-from btcaaron import Key, TapTree, Psbt, PsbtV2, quick_transfer
+from btcaaron import (
+    Key,
+    TapTree,
+    Psbt,
+    PsbtV2,
+    quick_transfer,
+    ord_inscription_script,
+    brc20_mint_json,
+    inq_cat_hashlock_script,
+    inq_csfs_script,
+    inq_ctv_script,
+    inq_ctv_template_hash_for_output,
+    inq_ctv_program_for_output,
+    derive_wif_from_tprv,
+    taproot_descriptor_from_tprv,
+    wif_secret_bytes,
+)
+from btcaaron.node_rpc import (
+    find_utxo_for_address,
+    wallet_change_address,
+    wallet_send_sats,
+    broadcast_tx_hex,
+)
 
 
 # ============================================================================
@@ -87,6 +110,126 @@ VERIFIED_TXS = {
 
 
 # ============================================================================
+# Unit Tests - Inquisition Script Templates
+# ============================================================================
+
+class TestInquisitionTemplates:
+    """Ensure experimental template helpers compile deterministic scripts."""
+
+    def test_cat_hashlock_template_hex(self):
+        expected = hashlib.sha256(b"helloworld").digest()
+        script = inq_cat_hashlock_script(expected)
+        assert script.to_hex() == "7ea820936a185caaa266bb9cbe981e9e05cb78cd732b0b3280eb944412bb6f8f8f07af87"
+
+    def test_csfs_template_hex(self):
+        script = inq_csfs_script()
+        assert script.to_hex() == "cc"
+
+    def test_ctv_template_hex(self):
+        template_hash = "32eb420b0a9b369add0d4016a852347a2aa8f0436cfb108d5324e4ace7f03b42"
+        script = inq_ctv_script(template_hash)
+        assert script.to_hex() == "2032eb420b0a9b369add0d4016a852347a2aa8f0436cfb108d5324e4ace7f03b42b3"
+
+    def test_ctv_template_requires_32_bytes(self):
+        with pytest.raises(ValueError):
+            inq_ctv_script("abcd")
+
+    def test_ctv_template_hash_for_output(self):
+        script_pubkey_hex = "5120f6d172d4f9f91f7f67a2d9af0e5f8ec6feef4d7f90fce61ce57e7106f4e26fd4"
+        h = inq_ctv_template_hash_for_output(49_500, script_pubkey_hex)
+        assert h.hex() == "5972d94034b5dcdc7325d33cae20ebe8529025f6c17474df37a54c1946bb8176"
+
+    def test_ctv_program_for_output_builds_ctv_leaf(self):
+        alice = Key.from_wif(ALICE_WIF)
+        script_pubkey_hex = "5120f6d172d4f9f91f7f67a2d9af0e5f8ec6feef4d7f90fce61ce57e7106f4e26fd4"
+        program, template_hash = inq_ctv_program_for_output(
+            internal_key=alice,
+            output_sats=49_500,
+            output_script_pubkey=script_pubkey_hex,
+            network="testnet",
+        )
+        leaf = program.leaf("ctv")
+        assert leaf.script_type == "CUSTOM"
+        assert leaf.script_hex == inq_ctv_script(template_hash).to_hex()
+
+
+class TestNodeRpcHelpers:
+    def test_wallet_change_address_uses_bech32m(self):
+        calls = []
+
+        def rpc_wallet(method, *params):
+            calls.append((method, params))
+            if method == "getrawchangeaddress":
+                return ""
+            if method == "getnewaddress":
+                return "tb1pchange"
+            return None
+
+        addr = wallet_change_address(rpc_wallet)
+        assert addr == "tb1pchange"
+        assert calls[0] == ("getrawchangeaddress", ("bech32m",))
+        assert calls[1] == ("getnewaddress", ("change", "bech32m"))
+
+    def test_wallet_send_sats_converts_units(self):
+        sent = {}
+
+        def rpc_wallet(method, *params):
+            sent["method"] = method
+            sent["params"] = params
+            return "txid123"
+
+        txid = wallet_send_sats(rpc_wallet, "tb1ptest", 50_000)
+        assert txid == "txid123"
+        assert sent["method"] == "sendtoaddress"
+        assert sent["params"][0] == "tb1ptest"
+        assert sent["params"][1] == 0.0005
+
+    def test_broadcast_tx_hex_calls_sendrawtransaction(self):
+        seen = {}
+
+        def rpc(method, *params):
+            seen["method"] = method
+            seen["params"] = params
+            return "txidabc"
+
+        txid = broadcast_tx_hex(rpc, "deadbeef")
+        assert txid == "txidabc"
+        assert seen["method"] == "sendrawtransaction"
+        assert seen["params"] == ("deadbeef",)
+
+    def test_find_utxo_prefers_txid_hint(self):
+        calls = []
+
+        def rpc(method, *params):
+            calls.append((method, params))
+            if method == "getrawtransaction":
+                return {
+                    "vout": [
+                        {"n": 0, "value": 0.00012345, "scriptPubKey": {"address": "tb1pother"}},
+                        {"n": 1, "value": 0.00050000, "scriptPubKey": {"address": "tb1ptarget"}},
+                    ]
+                }
+            raise AssertionError("scantxoutset should not be called when txid_hint hits")
+
+        utxo = find_utxo_for_address(rpc, "tb1ptarget", txid_hint="abc")
+        assert utxo == ("abc", 1, 50_000)
+        assert calls[0][0] == "getrawtransaction"
+
+    def test_find_utxo_falls_back_to_scantxoutset(self):
+        def rpc(method, *params):
+            if method == "getrawtransaction":
+                raise RuntimeError("txindex missing")
+            if method == "scantxoutset" and params[0] == "abort":
+                return None
+            if method == "scantxoutset" and params[0] == "start":
+                return {"unspents": [{"txid": "u1", "vout": 2, "amount": 0.0007}]}
+            raise AssertionError(f"unexpected rpc call: {method} {params}")
+
+        utxo = find_utxo_for_address(rpc, "tb1ptarget", txid_hint="hint")
+        assert utxo == ("u1", 2, 70_000)
+
+
+# ============================================================================
 # Unit Tests - Key
 # ============================================================================
 
@@ -107,6 +250,66 @@ class TestKey:
         """Invalid WIF should raise ValueError"""
         with pytest.raises(ValueError):
             Key.from_wif("invalid_wif_string")
+
+    def test_wif_secret_bytes_matches_key(self):
+        """WIF helper should decode the same private key as Key.from_wif."""
+        secret = wif_secret_bytes(ALICE_WIF)
+        assert len(secret) == 32
+        k_from_wif = Key.from_wif(ALICE_WIF)
+        k_from_secret = Key.from_hex(secret.hex())
+        assert k_from_wif.xonly == k_from_secret.xonly
+
+    def test_wif_secret_bytes_rejects_bad_checksum(self):
+        """WIF helper should reject tampered checksum."""
+        bad = ALICE_WIF[:-1] + ("1" if ALICE_WIF[-1] != "1" else "2")
+        with pytest.raises(ValueError):
+            wif_secret_bytes(bad)
+
+    def test_derive_wif_from_tprv_matches_reference(self):
+        """tprv child derivation should match a reference BIP32 implementation."""
+        bip32 = pytest.importorskip("bip32")
+        base58 = pytest.importorskip("base58")
+        BIP32 = bip32.BIP32
+        HARDENED_INDEX = bip32.HARDENED_INDEX
+
+        seed = bytes.fromhex("000102030405060708090a0b0c0d0e0f")
+        tprv = BIP32.from_seed(seed).get_xpriv()
+
+        got = derive_wif_from_tprv(tprv, branch=0, index=9, network="testnet")
+
+        ref = BIP32.from_xpriv(tprv)
+        path = [
+            86 | HARDENED_INDEX,
+            1 | HARDENED_INDEX,
+            0 | HARDENED_INDEX,
+            0,
+            9,
+        ]
+        private_key = ref.get_privkey_from_path(path)
+        payload = b"\xEF" + private_key + b"\x01"
+        checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+        expected = base58.b58encode(payload + checksum).decode()
+        assert got == expected
+
+    def test_from_tprv_builds_valid_key(self):
+        """Key.from_tprv should produce a usable taproot key."""
+        bip32 = pytest.importorskip("bip32")
+        seed = bytes.fromhex("0f0e0d0c0b0a09080706050403020100")
+        tprv = bip32.BIP32.from_seed(seed).get_xpriv()
+
+        key = Key.from_tprv(tprv, branch=1, index=3, network="testnet")
+        assert key.wif.startswith("c")
+        assert len(key.xonly) == 64
+
+    def test_taproot_descriptor_from_tprv_format(self):
+        """Descriptor helper should return BIP86-style tr(...) path."""
+        bip32 = pytest.importorskip("bip32")
+        seed = bytes.fromhex("00112233445566778899aabbccddeeff")
+        tprv = bip32.BIP32.from_seed(seed).get_xpriv()
+
+        desc = taproot_descriptor_from_tprv(tprv, branch=0, network="testnet")
+        assert desc.startswith(f"tr({tprv}/86h/1h/0h/0/")
+        assert desc.endswith("*)")
     
     def test_key_equality(self):
         """Same WIF should produce equal keys"""
@@ -197,6 +400,31 @@ class TestTapTree:
         assert "[2of2]" in viz
         assert "[csv]" in viz
         assert "[bob]" in viz
+
+    def test_inscription_leaf_build(self, keys):
+        """Inscription leaf should compile and expose metadata."""
+        payload = brc20_mint_json("DEMO", "1000")
+        program = (TapTree(internal_key=keys["alice"])
+            .inscription(keys["alice"], payload, label="inscribe")
+        ).build()
+
+        leaf = program.leaf("inscribe")
+        assert leaf.script_type == "INSCRIPTION"
+        assert "OP_IF" in leaf.script_asm
+        assert "OP_ENDIF" in leaf.script_asm
+
+    def test_custom_ord_inscription_leaf_build(self, keys):
+        """Custom ord template should compile to a CUSTOM leaf."""
+        payload = brc20_mint_json("DEMO", "1000")
+        script = ord_inscription_script(keys["alice"], payload)
+        program = (TapTree(internal_key=keys["alice"])
+            .custom(script, label="mint_custom")
+        ).build()
+
+        leaf = program.leaf("mint_custom")
+        assert leaf.script_type == "CUSTOM"
+        assert "OP_IF" in leaf.script_asm
+        assert "OP_ENDIF" in leaf.script_asm
 
 
 # ============================================================================
@@ -359,6 +587,42 @@ class TestSpendBuilder:
         
         assert tx.hex is not None
         assert tx.fee == 500
+
+    def test_inscription_spend_build(self, keys):
+        """Inscription leaf should spend with regular script-path signature."""
+        payload = brc20_mint_json("DEMO", "1000")
+        program = (TapTree(internal_key=keys["alice"])
+            .inscription(keys["alice"], payload, label="inscribe")
+        ).build()
+
+        tx = (program.spend("inscribe")
+            .from_utxo("f" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .sign(keys["alice"])
+            .build())
+
+        assert tx.hex is not None
+        assert tx.fee == 500
+
+    def test_custom_inscription_spend_psbt_build(self, keys):
+        """Custom inscription can reveal via PSBT sign/finalize flow."""
+        payload = brc20_mint_json("DEMO", "1000")
+        script = ord_inscription_script(keys["alice"], payload)
+        program = (TapTree(internal_key=keys["alice"])
+            .custom(script, label="mint_custom")
+        ).build()
+
+        psbt = (program.spend("mint_custom")
+            .from_utxo("a" * 64, 0, sats=1000)
+            .to("tb1qr65sfajzw8f4rh8d593zm6wryxcukulygv2209", 500)
+            .to_psbt())
+        psbt.sign_with(keys["alice"], 0)
+        psbt.finalize()
+        tx = psbt.extract_transaction()
+
+        assert tx is not None
+        txid = tx.get_txid() if hasattr(tx, "get_txid") else tx.txid
+        assert len(txid) == 64
     
     def test_from_utxos_single_equiv_to_from_utxo(self, program, keys):
         """from_utxos([(txid,vout,sats)]) should match from_utxo() for single UTXO"""

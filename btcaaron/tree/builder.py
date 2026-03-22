@@ -105,6 +105,56 @@ class TapTree:
             "params": {"pubkey": key.xonly},
         })
         return self
+
+    def inscription(
+        self,
+        key: Key,
+        body: Union[str, bytes],
+        *,
+        label: str = None,
+        content_type: str = "text/plain;charset=utf-8",
+        protocol: str = "ord",
+    ) -> "TapTree":
+        """
+        Add a standard Ordinals-style inscription leaf.
+
+        Script:
+            <x-only-pubkey> OP_CHECKSIG OP_0 OP_IF
+            <protocol> OP_1 <content-type> OP_0 <body> OP_ENDIF
+
+        Unlock: .sign(key)
+
+        Args:
+            key: Signing key for script-path spend
+            body: Inscription payload (str encoded as UTF-8, or raw bytes)
+            label: Unique label for this leaf
+            content_type: MIME type (UTF-8 encoded)
+            protocol: Envelope marker (default "ord")
+        """
+        label = self._ensure_label(label)
+
+        if isinstance(body, str):
+            body_hex = body.encode("utf-8").hex()
+        elif isinstance(body, bytes):
+            body_hex = body.hex()
+        else:
+            raise ValueError("body must be str or bytes")
+
+        protocol_hex = protocol.encode("utf-8").hex()
+        content_type_hex = content_type.encode("utf-8").hex()
+
+        self._leaves.append({
+            "label": label,
+            "index": self._next_index(),
+            "script_type": "INSCRIPTION",
+            "params": {
+                "pubkey": key.xonly,
+                "protocol_hex": protocol_hex,
+                "content_type_hex": content_type_hex,
+                "body_hex": body_hex,
+            },
+        })
+        return self
     
     def multisig(self, threshold: int, keys: List[Key], *, label: str = None) -> "TapTree":
         """

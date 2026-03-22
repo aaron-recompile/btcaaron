@@ -400,6 +400,21 @@ class SpendBuilder:
                     tweak=False
                 )
                 witness_elements.append(sig)
+
+            elif script_type == "INSCRIPTION":
+                if not self._signatures:
+                    from ..errors import BuildError
+                    raise BuildError("INSCRIPTION requires .sign(key)")
+                key = self._signatures[0]
+                sig = key._internal.sign_taproot_input(
+                    tx, input_idx,
+                    script_pub_keys,
+                    amounts,
+                    script_path=True,
+                    tapleaf_script=script,
+                    tweak=False
+                )
+                witness_elements.append(sig)
                 
             elif script_type == "MULTISIG":
                 if len(self._signatures) < leaf.params["threshold"]:

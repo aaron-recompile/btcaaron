@@ -11,6 +11,7 @@ from typing import Literal, Dict, Any
 ScriptType = Literal[
     "HASHLOCK",      # SHA256 hash lock
     "CHECKSIG",      # Single signature
+    "INSCRIPTION",   # Checksig + ord envelope payload
     "MULTISIG",      # N-of-M multisig (CHECKSIGADD)
     "CSV_TIMELOCK",  # Relative timelock (CSV)
     "CLTV_TIMELOCK", # Absolute timelock (CLTV) - future

@@ -64,6 +64,20 @@ class TaprootProgram:
                     'OP_CHECKSIG'
                 ])
 
+            elif script_type == "INSCRIPTION":
+                script = BUScript([
+                    params["pubkey"],
+                    "OP_CHECKSIG",
+                    "OP_0",
+                    "OP_IF",
+                    params["protocol_hex"],
+                    "OP_1",
+                    params["content_type_hex"],
+                    "OP_0",
+                    params["body_hex"],
+                    "OP_ENDIF",
+                ])
+
             elif script_type == "MULTISIG":
                 ops = ["OP_0"]
                 for pk in params["pubkeys"]:

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="btcaaron",
-    version="0.2.2",
+    version="0.2.3",
     description="A Bitcoin Testnet transaction toolkit supporting Legacy, SegWit, and Taproot",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
@@ -23,11 +23,17 @@ setup(
         "psbt",
         "regtest",
         "testnet",
+        "signet",
+        "bitcoin-inquisition",
+        "checksigfromstack",
+        "ctv",
     ],
     packages=find_packages(),
     install_requires=[
          "requests>=2.25.0,<3.0.0",
-         "bitcoin-utils>=0.7.3,<0.8.0"
+         "bitcoin-utils>=0.7.3,<0.8.0",
+         "bip32>=4.0.0",
+         "base58>=2.1.1"
     ],
     entry_points={
         "console_scripts": [

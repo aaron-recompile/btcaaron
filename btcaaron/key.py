@@ -4,6 +4,7 @@ btcaaron.key - Key Management
 The Key class provides a clean interface for Bitcoin key operations.
 """
 
+import hashlib
 from typing import Optional
 from bitcoinutils.setup import setup
 from bitcoinutils.keys import PrivateKey
@@ -31,6 +32,126 @@ def set_network(network: str) -> str:
     normalized = _normalize_network(network)
     setup(normalized)
     return normalized
+
+
+def _default_coin_type(network: str) -> int:
+    """
+    Default BIP44/86 coin type by network.
+
+    mainnet -> 0, testnet/regtest/signet-family -> 1
+    """
+    return 0 if _normalize_network(network) == "mainnet" else 1
+
+
+def wif_secret_bytes(wif: str) -> bytes:
+    """
+    Decode WIF and return 32-byte raw private key bytes.
+
+    Supports both compressed and uncompressed WIF.
+    """
+    try:
+        import base58
+    except ImportError as exc:
+        raise ValueError("Missing dep: pip install base58") from exc
+
+    try:
+        decoded = base58.b58decode(wif)
+    except Exception as exc:
+        raise ValueError(f"Invalid WIF encoding: {exc}") from exc
+
+    if len(decoded) not in (37, 38):
+        raise ValueError("Invalid WIF length")
+
+    payload, checksum = decoded[:-4], decoded[-4:]
+    expected = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    if checksum != expected:
+        raise ValueError("Invalid WIF checksum")
+
+    prefix = payload[0]
+    if prefix not in (0x80, 0xEF):
+        raise ValueError("Invalid WIF network/version byte")
+
+    if len(payload) == 34:
+        # Compressed key marker must be present.
+        if payload[-1] != 0x01:
+            raise ValueError("Invalid compressed WIF marker")
+        secret = payload[1:-1]
+    else:
+        secret = payload[1:]
+
+    if len(secret) != 32:
+        raise ValueError("Invalid private key length in WIF")
+    return secret
+
+
+def derive_wif_from_tprv(
+    tprv: str,
+    *,
+    branch: int = 0,
+    index: int = 0,
+    purpose: int = 86,
+    coin_type: Optional[int] = None,
+    account: int = 0,
+    network: str = "testnet",
+) -> str:
+    """
+    Derive a compressed child WIF from an account-level xpriv/tprv.
+
+    Default path follows BIP86:
+      m / 86' / coin_type' / account' / branch / index
+    """
+    try:
+        from bip32 import BIP32, HARDENED_INDEX
+        import base58
+    except ImportError as exc:
+        raise ValueError("Missing deps: pip install bip32 base58") from exc
+
+    if min(branch, index, purpose, account) < 0:
+        raise ValueError("branch/index/purpose/account must be non-negative")
+
+    ct = _default_coin_type(network) if coin_type is None else coin_type
+    if ct < 0:
+        raise ValueError("coin_type must be non-negative")
+
+    path = [
+        purpose | HARDENED_INDEX,
+        ct | HARDENED_INDEX,
+        account | HARDENED_INDEX,
+        branch,
+        index,
+    ]
+    try:
+        bip32_obj = BIP32.from_xpriv(tprv)
+        private_key = bip32_obj.get_privkey_from_path(path)
+    except Exception as exc:
+        raise ValueError(f"Invalid tprv/xpriv or derivation path: {exc}") from exc
+
+    prefix = b"\x80" if _normalize_network(network) == "mainnet" else b"\xEF"
+    payload = prefix + private_key + b"\x01"
+    checksum = hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4]
+    return base58.b58encode(payload + checksum).decode()
+
+
+def taproot_descriptor_from_tprv(
+    tprv: str,
+    *,
+    branch: int = 0,
+    purpose: int = 86,
+    coin_type: Optional[int] = None,
+    account: int = 0,
+    network: str = "testnet",
+    wildcard: bool = True,
+    index: int = 0,
+) -> str:
+    """
+    Build a BIP86-style taproot descriptor string from xpriv/tprv.
+
+    Example:
+      tr(tprv.../86h/1h/0h/0/*)
+    """
+    ct = _default_coin_type(network) if coin_type is None else coin_type
+    suffix = "*" if wildcard else str(index)
+    return f"tr({tprv}/{purpose}h/{ct}h/{account}h/{branch}/{suffix})"
 
 
 # Default module context remains testnet-first.
@@ -89,6 +210,36 @@ class Key:
             return cls(private_key)
         except Exception as e:
             raise ValueError(f"Invalid hex private key: {e}")
+
+    @classmethod
+    def from_tprv(
+        cls,
+        tprv: str,
+        *,
+        branch: int = 0,
+        index: int = 0,
+        purpose: int = 86,
+        coin_type: Optional[int] = None,
+        account: int = 0,
+        network: str = "testnet",
+    ) -> "Key":
+        """
+        Create Key by deriving child private key from xpriv/tprv.
+
+        Default derivation path:
+          m/86'/coin_type'/account'/branch/index
+        """
+        set_network(network)
+        wif = derive_wif_from_tprv(
+            tprv,
+            branch=branch,
+            index=index,
+            purpose=purpose,
+            coin_type=coin_type,
+            account=account,
+            network=network,
+        )
+        return cls.from_wif(wif)
     
     @classmethod
     def generate(cls, network: str = "testnet") -> "Key":

@@ -29,6 +29,8 @@ examples/
 examples/*
 !examples/core_test/
 !examples/core_test/**
+!examples/chapter09_inscription/
+!examples/chapter09_inscription/**
 
 # Debug scripts
 debug_*.py
@@ -36,4 +38,9 @@ debug_*.py
 # Cache
 __pycache__/
 *.pyc
+
+# Local virtualenvs (not part of source distribution)
+.venv/
+.venv-release/
+.venv-test/
 
