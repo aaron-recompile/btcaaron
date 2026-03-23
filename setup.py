@@ -3,12 +3,18 @@ from setuptools import setup, find_packages
 setup(
     name="btcaaron",
     version="0.2.3",
-    description="A Bitcoin Testnet transaction toolkit supporting Legacy, SegWit, and Taproot",
+    description=(
+        "Pragmatic Bitcoin Taproot toolkit: Legacy/SegWit/Taproot, PSBT, optional Signet workflows, "
+        "and Bitcoin Inquisition opcode templates (OP_CAT, CSFS, CTV)."
+    ),
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Aaron Zhang",
-    author_email="aaron.recompile@gmail.com",   
-    url="https://x.com/aaron_recompile",
+    author_email="aaron.recompile@gmail.com",
+    url="https://github.com/aaron-recompile/btcaaron",
+    project_urls={
+        "X (author)": "https://x.com/aaron_recompile",
+    },
     keywords=[
         "bitcoin",
         "taproot",

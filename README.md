@@ -2,9 +2,9 @@
 
 [![Supported by OpenSats](https://img.shields.io/badge/supported%20by-OpenSats-orange?style=flat-square&logo=bitcoin)](https://opensats.org)
 
-A pragmatic Bitcoin toolkit with a clear path toward full Taproot engineering.
+A pragmatic Bitcoin toolkit for Taproot engineering — Legacy, SegWit, and Taproot flows, PSBT, and optional **Signet** / **Bitcoin Inquisition** opcode templates (OP_CAT, CSFS, CTV).
 
-Designed for reproducible testnet experiments, educational workflows, and script-path development.
+Designed for reproducible testnet and signet experiments, educational workflows, and script-path development.
 
 If you find btcaaron useful, a GitHub star is appreciated.
 
