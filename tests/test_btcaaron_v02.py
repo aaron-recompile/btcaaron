@@ -1,5 +1,5 @@
 """
-btcaaron v0.2.0 Test Suite
+btcaaron v0.2.x Test Suite
 
 This file contains both unit tests and integration tests with
 real testnet transaction records for verification.
