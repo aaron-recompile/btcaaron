@@ -1,0 +1,3 @@
+# Local state from demos (do not commit)
+.rca_taptree*
+.rca_eltoo_chain_last.json

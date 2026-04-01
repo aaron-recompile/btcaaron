@@ -31,6 +31,8 @@ examples/*
 !examples/core_test/**
 !examples/chapter09_inscription/
 !examples/chapter09_inscription/**
+!examples/braidpool/
+!examples/braidpool/**
 
 # Debug scripts
 debug_*.py
