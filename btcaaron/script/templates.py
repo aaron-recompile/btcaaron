@@ -5,8 +5,9 @@ btcaaron.script.templates - Reusable script templates
 import json
 import hashlib
 import struct
-from typing import Any, Mapping, Union
+from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 
+from ..bip118 import apo_pubkey_bytes
 from ..key import Key
 from .script import RawScript, Script
 
@@ -173,6 +174,47 @@ def inq_ctv_script(template_hash: Union[bytes, str]) -> RawScript:
     return RawScript(script_hex)
 
 
+def inq_ctv_template_hash_for_outputs(
+    outputs: Sequence[Tuple[int, Union[bytes, str]]],
+    *,
+    n_version: int = 2,
+    n_locktime: int = 0,
+    n_vin: int = 1,
+    sequence: int = 0xFFFFFFFF,
+    n_in: int = 0,
+) -> bytes:
+    """
+    Compute CTV (BIP119-style) template hash for a multi-output template.
+
+    ``outputs`` order must match the spend transaction's output order exactly.
+    Each tuple is ``(value_sats, script_pubkey)`` with ``script_pubkey`` as hex or bytes.
+
+    Same preimage layout as ``inq_ctv_template_hash_for_output`` for the single-output case.
+    """
+    if not outputs:
+        raise ValueError("outputs must be non-empty")
+    blob = b""
+    for output_sats, spk in outputs:
+        if output_sats < 0:
+            raise ValueError("output_sats must be >= 0")
+        script_pubkey = _to_bytes(spk, field_name="output_script_pubkey")
+        blob += _ser_txout(output_sats, script_pubkey)
+    sequences = struct.pack("<I", sequence)
+    precomputed_sequences = hashlib.sha256(sequences).digest()
+    precomputed_outputs = hashlib.sha256(blob).digest()
+    n_vout = len(outputs)
+
+    r = b""
+    r += struct.pack("<i", n_version)
+    r += struct.pack("<I", n_locktime)
+    r += struct.pack("<I", n_vin)
+    r += precomputed_sequences
+    r += struct.pack("<I", n_vout)
+    r += precomputed_outputs
+    r += struct.pack("<I", n_in)
+    return hashlib.sha256(r).digest()
+
+
 def inq_ctv_template_hash_for_output(
     output_sats: int,
     output_script_pubkey: Union[bytes, str],
@@ -190,23 +232,16 @@ def inq_ctv_template_hash_for_output(
     This is the common Inquisition experiment pattern:
     one input, one output, fixed sequence.
     """
-    if output_sats < 0:
-        raise ValueError("output_sats must be >= 0")
-    script_pubkey = _to_bytes(output_script_pubkey, field_name="output_script_pubkey")
-    outputs_serialized = _ser_txout(output_sats, script_pubkey)
-    sequences = struct.pack("<I", sequence)
-    precomputed_sequences = hashlib.sha256(sequences).digest()
-    precomputed_outputs = hashlib.sha256(outputs_serialized).digest()
-
-    r = b""
-    r += struct.pack("<i", n_version)
-    r += struct.pack("<I", n_locktime)
-    r += struct.pack("<I", n_vin)
-    r += precomputed_sequences
-    r += struct.pack("<I", n_vout)
-    r += precomputed_outputs
-    r += struct.pack("<I", n_in)
-    return hashlib.sha256(r).digest()
+    if n_vout != 1:
+        raise ValueError("use inq_ctv_template_hash_for_outputs for n_vout != 1")
+    return inq_ctv_template_hash_for_outputs(
+        [(output_sats, output_script_pubkey)],
+        n_version=n_version,
+        n_locktime=n_locktime,
+        n_vin=n_vin,
+        sequence=sequence,
+        n_in=n_in,
+    )
 
 
 def inq_ctv_program_for_output(
@@ -237,3 +272,82 @@ def inq_ctv_program_for_output(
         label=label,
     ).build()
     return program, template_hash
+
+
+def inq_ctv_program_for_outputs(
+    internal_key: Key,
+    outputs: Sequence[Tuple[int, Union[bytes, str]]],
+    *,
+    network: str = "signet",
+    label: str = "ctv",
+    sequence: int = 0xFFFFFFFF,
+):
+    """
+    TapTree with one CTV leaf committing to a **multi-output** template (UHPO-style splits).
+
+    Spend with ``program.spend(label).from_utxo(...).to(a0,s0).to(a1,s1)...`` in the **same
+    order** as ``outputs``.
+
+    Returns:
+        tuple(TaprootProgram, template_hash_bytes)
+    """
+    from ..tree import TapTree
+
+    template_hash = inq_ctv_template_hash_for_outputs(
+        list(outputs),
+        sequence=sequence,
+    )
+    leaf_script = inq_ctv_script(template_hash)
+    program = TapTree(internal_key=internal_key, network=network).custom(
+        script=leaf_script,
+        label=label,
+    ).build()
+    return program, template_hash
+
+
+def inq_apo_checksig_script(signer: Union[Key, str]) -> RawScript:
+    """
+    BIP118 tapscript leaf for ``SIGHASH_ANYPREVOUT`` script-path spends.
+
+    Script shape (see BIP118):
+        <33-byte BIP118 pubkey> OP_CHECKSIG
+    where the pubkey is ``0x01 || 32-byte x-only`` (not plain BIP340 x-only).
+
+    Unlock with ``SpendBuilder.sign(key)`` on a program built via
+    ``TapTree.bip118_checksig(...)`` or ``inq_apo_program(...)`` — signing uses
+    ``Key.sign_taproot_script_bip118`` (sighash byte e.g. ``0x41``).
+
+    **Consensus** requires a node that implements BIP118 (e.g. Bitcoin Inquisition).
+    """
+    xonly_hex = _to_xonly_hex(signer)
+    apo_push = apo_pubkey_bytes(bytes.fromhex(xonly_hex))
+    script_hex = _push_bytes_hex(apo_push.hex()) + "ac"
+    return RawScript(script_hex)
+
+
+def inq_apo_program(
+    apo_signer: Key,
+    *,
+    internal_key: Optional[Key] = None,
+    network: str = "signet",
+    label: str = "apo",
+):
+    """
+    Single-leaf Taproot program: BIP118 ``<0x01||xonly> OP_CHECKSIG``.
+
+    ``apo_signer`` is the key that must sign the script-path spend (BIP118 sighash).
+
+    If ``internal_key`` is omitted, it defaults to ``apo_signer`` (simplest demo:
+    key-path and script-path share the same internal key).
+
+    Returns:
+        TaprootProgram
+    """
+    from ..tree import TapTree
+
+    ik = internal_key if internal_key is not None else apo_signer
+    return (
+        TapTree(internal_key=ik, network=network)
+        .bip118_checksig(apo_signer, label=label)
+        .build()
+    )

@@ -10,7 +10,11 @@ from .templates import (
     inq_csfs_script,
     inq_ctv_script,
     inq_ctv_template_hash_for_output,
+    inq_ctv_template_hash_for_outputs,
     inq_ctv_program_for_output,
+    inq_ctv_program_for_outputs,
+    inq_apo_checksig_script,
+    inq_apo_program,
 )
 
 __all__ = [
@@ -22,5 +26,9 @@ __all__ = [
     "inq_csfs_script",
     "inq_ctv_script",
     "inq_ctv_template_hash_for_output",
+    "inq_ctv_template_hash_for_outputs",
     "inq_ctv_program_for_output",
+    "inq_ctv_program_for_outputs",
+    "inq_apo_checksig_script",
+    "inq_apo_program",
 ]

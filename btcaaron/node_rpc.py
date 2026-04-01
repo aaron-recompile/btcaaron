@@ -9,6 +9,7 @@ project-specific RPC wrappers (for example, `config.rpc` and `config.rpc_wallet`
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from typing import Any, Callable, Optional, Tuple
 
 RpcFn = Callable[..., Any]
@@ -22,12 +23,18 @@ def sats_from_rpc_amount(value: Any) -> int:
     Supports:
     - `value` in BTC float/str (common in getrawtransaction/scantxoutset)
     - integer satoshis (if already normalized by caller)
+    - :class:`decimal.Decimal` (BTC nominal)
+
+    Uses :class:`~decimal.Decimal` instead of ``float * 1e8`` so rounding matches
+    Taproot/BIP341 sighash expectations (off-by-one sat breaks Schnorr verification).
     """
     if value is None:
         raise ValueError("Missing amount value")
     if isinstance(value, int):
         return value
-    return int(float(value) * 1e8)
+    if isinstance(value, Decimal):
+        return int((value * Decimal(10**8)).to_integral_value())
+    return int((Decimal(str(value)) * Decimal(10**8)).to_integral_value())
 
 
 def wallet_change_address(rpc_wallet: RpcFn) -> str:

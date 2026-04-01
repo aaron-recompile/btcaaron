@@ -22,7 +22,11 @@ from btcaaron import (
     inq_csfs_script,
     inq_ctv_script,
     inq_ctv_template_hash_for_output,
+    inq_ctv_template_hash_for_outputs,
     inq_ctv_program_for_output,
+    inq_ctv_program_for_outputs,
+    inq_apo_checksig_script,
+    inq_apo_program,
     derive_wif_from_tprv,
     taproot_descriptor_from_tprv,
     wif_secret_bytes,
@@ -139,6 +143,26 @@ class TestInquisitionTemplates:
         h = inq_ctv_template_hash_for_output(49_500, script_pubkey_hex)
         assert h.hex() == "5972d94034b5dcdc7325d33cae20ebe8529025f6c17474df37a54c1946bb8176"
 
+    def test_ctv_template_hash_single_matches_outputs_helper(self):
+        script_pubkey_hex = "5120f6d172d4f9f91f7f67a2d9af0e5f8ec6feef4d7f90fce61ce57e7106f4e26fd4"
+        h1 = inq_ctv_template_hash_for_output(49_500, script_pubkey_hex)
+        h2 = inq_ctv_template_hash_for_outputs([(49_500, script_pubkey_hex)])
+        assert h1 == h2
+
+    def test_ctv_program_for_outputs_three_way_split(self):
+        alice = Key.from_wif(ALICE_WIF)
+        spk_a = "5120" + "11" * 32
+        spk_b = "5120" + "22" * 32
+        spk_c = "5120" + "33" * 32
+        outputs = [(24750, spk_a), (14850, spk_b), (9900, spk_c)]
+        th = inq_ctv_template_hash_for_outputs(outputs)
+        program, th2 = inq_ctv_program_for_outputs(
+            alice, outputs, network="testnet", label="uhpo_ctv"
+        )
+        assert th == th2
+        leaf = program.leaf("uhpo_ctv")
+        assert leaf.script_hex == inq_ctv_script(th).to_hex()
+
     def test_ctv_program_for_output_builds_ctv_leaf(self):
         alice = Key.from_wif(ALICE_WIF)
         script_pubkey_hex = "5120f6d172d4f9f91f7f67a2d9af0e5f8ec6feef4d7f90fce61ce57e7106f4e26fd4"
@@ -151,6 +175,36 @@ class TestInquisitionTemplates:
         leaf = program.leaf("ctv")
         assert leaf.script_type == "CUSTOM"
         assert leaf.script_hex == inq_ctv_script(template_hash).to_hex()
+
+    def test_apo_checksig_template_hex(self):
+        alice = Key.from_wif(ALICE_WIF)
+        script = inq_apo_checksig_script(alice)
+        assert script.to_hex() == "21" + "01" + ALICE_XONLY + "ac"
+
+    def test_apo_program_leaf_matches_template(self):
+        alice = Key.from_wif(ALICE_WIF)
+        program = inq_apo_program(alice, network="testnet")
+        leaf = program.leaf("apo")
+        assert leaf.script_type == "BIP118_CHECKSIG"
+        assert leaf.script_hex == inq_apo_checksig_script(alice).to_hex()
+
+    def test_apo_spend_builds_bip118_witness(self):
+        alice = Key.from_wif(ALICE_WIF)
+        program = inq_apo_program(alice, network="testnet")
+        tx_wrapped = (
+            program.spend("apo")
+            .from_utxo(
+                "1111111111111111111111111111111111111111111111111111111111111111",
+                0,
+                sats=50_000,
+            )
+            .to(program.address, 49_500)
+            .sign(alice)
+            .build()
+        )
+        sig = tx_wrapped._tx.witnesses[0].stack[0]
+        assert len(sig) == 130
+        assert sig[-2:] == "41"
 
 
 class TestNodeRpcHelpers:

@@ -2,13 +2,13 @@
 
 [![Supported by OpenSats](https://img.shields.io/badge/supported%20by-OpenSats-orange?style=flat-square&logo=bitcoin)](https://opensats.org)
 
-A pragmatic Bitcoin toolkit for Taproot engineering — Legacy, SegWit, and Taproot flows, PSBT, and optional **Signet** / **Bitcoin Inquisition** opcode templates (OP_CAT, CSFS, CTV).
+A pragmatic Bitcoin toolkit for Taproot engineering — Legacy, SegWit, and Taproot flows, PSBT, and optional **Signet** / **Bitcoin Inquisition** opcode templates (OP_CAT, CSFS, CTV, BIP118 APO).
 
 Designed for reproducible testnet and signet experiments, educational workflows, and script-path development.
 
 If you find btcaaron useful, a GitHub star is appreciated.
 
-👉 Looking for Bitcoin Inquisition experimental opcode templates (OP_CAT / CSFS / CTV)? See **[INQUISITION.md](INQUISITION.md)**.
+👉 Looking for Bitcoin Inquisition experimental opcode templates (OP_CAT / CSFS / CTV / BIP118)? See **[INQUISITION.md](INQUISITION.md)**.
 
 ## Current Status
 
@@ -36,6 +36,8 @@ Testnet-verified with real transactions (23 tests, all passing):
 - Automatic witness construction and signature ordering
 - All 5 spend paths verified: hashlock, multisig, checksig, CSV timelock, keypath
 - Real transaction TXID reproduction tests
+
+**BIP118 (SIGHASH_ANYPREVOUT)** — `btcaaron.bip118` implements ``Msg118``/``Ext118`` + ``TaggedHash("TapSighash", …)``; **`inq_apo_checksig_script` / `inq_apo_program`** build the standard APO tapscript leaf; **`TapTree.bip118_checksig`** or **`program.spend(...).sign(key)`** use `Key.sign_taproot_script_bip118` (65-byte sig, last byte e.g. `0x41`). Tests: `tests/test_bip118.py`, `tests/test_btcaaron_v02.py` (`TestInquisitionTemplates`). Inquisition companion script: `inquisition-experiments/experiments/apo_template.py` (`--fund` / `--spend`).
 
 ### Future (v0.3.x+)
 

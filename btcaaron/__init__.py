@@ -28,6 +28,13 @@ from .legacy import (
 # New API (v0.2.x)
 # ══════════════════════════════════════════════════════════════════
 from .key import Key, derive_wif_from_tprv, taproot_descriptor_from_tprv, wif_secret_bytes
+from .bip118 import (
+    SIGHASH_ANYPREVOUT,
+    SIGHASH_ANYPREVOUTANYSCRIPT,
+    SIGHASH_DEFAULT_APO,
+    apo_pubkey_bytes,
+    bip118_sighash,
+)
 from .tree import TapTree, TaprootProgram, LeafDescriptor
 from .spend import SpendBuilder, Transaction
 from .script import (
@@ -39,7 +46,11 @@ from .script import (
     inq_csfs_script,
     inq_ctv_script,
     inq_ctv_template_hash_for_output,
+    inq_ctv_template_hash_for_outputs,
     inq_ctv_program_for_output,
+    inq_ctv_program_for_outputs,
+    inq_apo_checksig_script,
+    inq_apo_program,
 )
 from .node_rpc import (
     broadcast_tx_hex,
@@ -75,6 +86,11 @@ __all__ = [
     "derive_wif_from_tprv",
     "taproot_descriptor_from_tprv",
     "wif_secret_bytes",
+    "SIGHASH_ANYPREVOUT",
+    "SIGHASH_ANYPREVOUTANYSCRIPT",
+    "SIGHASH_DEFAULT_APO",
+    "apo_pubkey_bytes",
+    "bip118_sighash",
     "TapTree",
     "TaprootProgram",
     "LeafDescriptor",
@@ -88,7 +104,11 @@ __all__ = [
     "inq_csfs_script",
     "inq_ctv_script",
     "inq_ctv_template_hash_for_output",
+    "inq_ctv_template_hash_for_outputs",
     "inq_ctv_program_for_output",
+    "inq_ctv_program_for_outputs",
+    "inq_apo_checksig_script",
+    "inq_apo_program",
     "broadcast_tx_hex",
     "find_utxo_for_address",
     "sats_from_rpc_amount",

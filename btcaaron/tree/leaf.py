@@ -9,13 +9,14 @@ from typing import Literal, Dict, Any
 
 
 ScriptType = Literal[
-    "HASHLOCK",      # SHA256 hash lock
-    "CHECKSIG",      # Single signature
-    "INSCRIPTION",   # Checksig + ord envelope payload
-    "MULTISIG",      # N-of-M multisig (CHECKSIGADD)
-    "CSV_TIMELOCK",  # Relative timelock (CSV)
-    "CLTV_TIMELOCK", # Absolute timelock (CLTV) - future
-    "CUSTOM"         # User-defined script
+    "HASHLOCK",         # SHA256 hash lock
+    "CHECKSIG",         # Single signature
+    "BIP118_CHECKSIG",  # BIP118 APO pubkey + OP_CHECKSIG
+    "INSCRIPTION",      # Checksig + ord envelope payload
+    "MULTISIG",         # N-of-M multisig (CHECKSIGADD)
+    "CSV_TIMELOCK",     # Relative timelock (CSV)
+    "CLTV_TIMELOCK",    # Absolute timelock (CLTV) - future
+    "CUSTOM",           # User-defined script
 ]
 
 

@@ -106,6 +106,25 @@ class TapTree:
         })
         return self
 
+    def bip118_checksig(self, key: Key, *, label: str = None) -> "TapTree":
+        """
+        Add a BIP118 (SIGHASH_ANYPREVOUT) script-path leaf.
+
+        Script: <33-byte BIP118 pubkey> OP_CHECKSIG (``0x01 || x-only`` then ``OP_CHECKSIG``).
+
+        Unlock: ``.sign(key)`` with the same key (uses ``Key.sign_taproot_script_bip118``).
+
+        Requires a BIP118-capable node (e.g. Bitcoin Inquisition) for consensus acceptance.
+        """
+        label = self._ensure_label(label)
+        self._leaves.append({
+            "label": label,
+            "index": self._next_index(),
+            "script_type": "BIP118_CHECKSIG",
+            "params": {"pubkey": key.xonly},
+        })
+        return self
+
     def inscription(
         self,
         key: Key,

@@ -4,7 +4,7 @@ btcaaron.tree.program - TaprootProgram
 TaprootProgram represents a frozen Taproot script tree.
 """
 
-from typing import List, Dict, Any, Union, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Union, Optional, TYPE_CHECKING, Sequence
 
 from ..key import Key
 from .leaf import LeafDescriptor
@@ -97,6 +97,11 @@ class TaprootProgram:
                     params["pubkey"],
                     "OP_CHECKSIG"
                 ])
+
+            elif script_type == "BIP118_CHECKSIG":
+                from ..script.templates import inq_apo_checksig_script
+
+                script = inq_apo_checksig_script(params["pubkey"])
 
             elif script_type == "CUSTOM":
                 script = params["script"]
@@ -269,6 +274,12 @@ class TaprootProgram:
         from ..spend.builder import SpendBuilder
         leaf = self.leaf(label_or_index)
         return SpendBuilder(program=self, leaf=leaf, is_keypath=False)
+
+    def spend_per_input(self, labels: Sequence[Union[str, int]]) -> "SpendBuilder":
+        """Script-path spend with a different leaf per input (e.g. BIP119 n_in per index)."""
+        from ..spend.builder import SpendBuilder
+        leaves = [self.leaf(l) for l in labels]
+        return SpendBuilder(program=self, leaf=None, leaves=leaves, is_keypath=False)
     
     def keypath(self) -> "SpendBuilder":
         from ..spend.builder import SpendBuilder

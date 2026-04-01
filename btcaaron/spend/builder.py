@@ -4,7 +4,7 @@ btcaaron.spend.builder - SpendBuilder
 SpendBuilder provides a fluent interface for constructing spending transactions.
 """
 
-from typing import List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import List, Optional, Tuple, Union, TYPE_CHECKING, Sequence
 
 from ..key import Key
 from .transaction import Transaction
@@ -38,14 +38,27 @@ class SpendBuilder:
             .build())
     """
     
-    def __init__(self, program: "TaprootProgram", leaf: Optional["LeafDescriptor"], 
-                 is_keypath: bool):
+    def __init__(
+        self,
+        program: "TaprootProgram",
+        leaf: Optional["LeafDescriptor"],
+        is_keypath: bool,
+        leaves: Optional[Sequence["LeafDescriptor"]] = None,
+    ):
         """
         Internal constructor. Use program.spend() or program.keypath().
+        ``leaves`` (multi script-path): one leaf per input, e.g. OP_CTV with per-input n_in.
         """
         self._program = program
         self._leaf = leaf
+        self._leaves: Optional[List["LeafDescriptor"]] = (
+            list(leaves) if leaves is not None else None
+        )
         self._is_keypath = is_keypath
+        if not is_keypath and leaf is not None and self._leaves is not None:
+            raise ValueError("Specify either leaf or leaves, not both")
+        if not is_keypath and leaf is None and self._leaves is None:
+            raise ValueError("Script path requires leaf or leaves")
         
         # Transaction data: list of (txid, vout, sats)
         self._utxos: List[UTXO] = []
@@ -226,12 +239,18 @@ class SpendBuilder:
                 else:
                     inp._tapleaf_scripts_for_tweak = []
             else:
-                script = self._program._scripts[self._leaf.index]
+                leaf_list = (
+                    self._leaves
+                    if self._leaves is not None
+                    else [self._leaf] * len(self._utxos)
+                )
+                lf = leaf_list[i]
+                script = self._program._scripts[lf.index]
                 script_bytes = (
-                    script.to_bytes() if hasattr(script, 'to_bytes') 
+                    script.to_bytes() if hasattr(script, 'to_bytes')
                     else bytes.fromhex(script.to_hex())
                 )
-                cb_hex = self._program.control_block(self._leaf.index)
+                cb_hex = self._program.control_block(lf.index)
                 inp.tap_leaf_script = (script_bytes, bytes.fromhex(cb_hex))
                 inp._tapleaf_script_obj = script
 
@@ -269,12 +288,12 @@ class SpendBuilder:
                 if self._sequence is not None:
                     txin.sequence = struct.pack('<I', self._sequence)
             else:
-                leaf = self._leaf
+                leaf_head = self._leaves[0] if self._leaves else self._leaf
                 if self._sequence is not None:
                     txin = TxInput(txid, vout)
                     txin.sequence = struct.pack('<I', self._sequence)
-                elif leaf.script_type == "CSV_TIMELOCK":
-                    seq = Sequence(TYPE_RELATIVE_TIMELOCK, leaf.params["sequence_value"])
+                elif leaf_head.script_type == "CSV_TIMELOCK":
+                    seq = Sequence(TYPE_RELATIVE_TIMELOCK, leaf_head.params["sequence_value"])
                     txin = TxInput(txid, vout, sequence=seq.for_input_sequence())
                 else:
                     txin = TxInput(txid, vout)
@@ -341,12 +360,22 @@ class SpendBuilder:
     
     def _build_script_path(self) -> Transaction:
         """Build script-path spending transaction."""
+        from ..errors import BuildError
+        from ..script.script import RawScript
+        from bitcoinutils.script import Script as BUScript
         from bitcoinutils.transactions import Transaction as BUTransaction
         from bitcoinutils.transactions import TxInput, TxOutput, TxWitnessInput, Sequence
         from bitcoinutils.constants import TYPE_RELATIVE_TIMELOCK
         import struct
-        
-        leaf = self._leaf
+
+        leaf_list = (
+            self._leaves if self._leaves else [self._leaf] * len(self._utxos)
+        )
+        if len(leaf_list) != len(self._utxos):
+            raise BuildError(
+                "spend_per_input: number of leaves must match number of UTXOs"
+            )
+        leaf = leaf_list[0]
         script_type = leaf.script_type
         script_pub_keys = [self._program._addr_obj.to_script_pub_key()] * len(self._utxos)
         amounts = [sats for _, _, sats in self._utxos]
@@ -373,11 +402,11 @@ class SpendBuilder:
         
         tx = BUTransaction(txins, txouts, has_segwit=True)
         
-        script = self._program._scripts[leaf.index]
-        cb_hex = self._program.control_block(leaf.index)
-        
-        # Build witness for each input (each input needs its own signature)
+        # Build witness for each input (each input needs its own signature / script path)
         for input_idx in range(len(self._utxos)):
+            leaf = leaf_list[input_idx]
+            script = self._program._scripts[leaf.index]
+            cb_hex = self._program.control_block(leaf.index)
             witness_elements = []
             
             if script_type == "HASHLOCK":
@@ -388,7 +417,6 @@ class SpendBuilder:
                 
             elif script_type == "CHECKSIG":
                 if not self._signatures:
-                    from ..errors import BuildError
                     raise BuildError("CHECKSIG requires .sign(key)")
                 key = self._signatures[0]
                 sig = key._internal.sign_taproot_input(
@@ -401,9 +429,38 @@ class SpendBuilder:
                 )
                 witness_elements.append(sig)
 
+            elif script_type == "BIP118_CHECKSIG":
+                if self._custom_witness is not None:
+                    if len(self._custom_witness) != 3:
+                        raise BuildError(
+                            "BIP118_CHECKSIG: reuse signature with "
+                            ".unlock_with([sig_hex, script_hex, control_block_hex]) (3 items)"
+                        )
+                    witness_elements.extend(self._custom_witness)
+                elif not self._signatures:
+                    raise BuildError("BIP118_CHECKSIG requires .sign(key) with the APO leaf key")
+                else:
+                    key = self._signatures[0]
+                    if key.xonly != leaf.params["pubkey"]:
+                        raise BuildError(
+                            "BIP118_CHECKSIG: .sign(key) x-only must match the leaf pubkey"
+                        )
+                    bu_leaf = (
+                        BUScript.from_raw(script.to_hex())
+                        if isinstance(script, RawScript)
+                        else script
+                    )
+                    sig_hex = key.sign_taproot_script_bip118(
+                        tx,
+                        input_idx,
+                        script_pub_keys,
+                        amounts,
+                        bu_leaf,
+                    )
+                    witness_elements.append(sig_hex)
+
             elif script_type == "INSCRIPTION":
                 if not self._signatures:
-                    from ..errors import BuildError
                     raise BuildError("INSCRIPTION requires .sign(key)")
                 key = self._signatures[0]
                 sig = key._internal.sign_taproot_input(
@@ -418,7 +475,6 @@ class SpendBuilder:
                 
             elif script_type == "MULTISIG":
                 if len(self._signatures) < leaf.params["threshold"]:
-                    from ..errors import BuildError
                     raise BuildError(f"MULTISIG requires at least {leaf.params['threshold']} signatures")
                 pubkeys = leaf.params["pubkeys"]
                 sigs_by_pubkey = {}
@@ -438,7 +494,6 @@ class SpendBuilder:
                         
             elif script_type == "CSV_TIMELOCK":
                 if not self._signatures:
-                    from ..errors import BuildError
                     raise BuildError("CSV_TIMELOCK requires .sign(key)")
                 key = self._signatures[0]
                 sig = key._internal.sign_taproot_input(
@@ -453,16 +508,17 @@ class SpendBuilder:
                 
             elif script_type == "CUSTOM":
                 if self._custom_witness is None:
-                    from ..errors import BuildError
                     raise BuildError("CUSTOM script requires .unlock_with([...])")
                 witness_elements.extend(self._custom_witness)
-            
-            witness_elements.append(script.to_hex())
-            witness_elements.append(cb_hex)
+
+            # BIP118 reuse: .unlock_with([sig, script, ctrl]) already supplies full stack.
+            if not (script_type == "BIP118_CHECKSIG" and self._custom_witness is not None):
+                witness_elements.append(script.to_hex())
+                witness_elements.append(cb_hex)
             tx.witnesses.append(TxWitnessInput(witness_elements))
         
         total_sats = sum(sats for _, _, sats in self._utxos)
-        return Transaction(tx, self._program, leaf, total_sats)
+        return Transaction(tx, self._program, leaf_list[0], total_sats)
     
     def _address_from_string(self, address: str):
         """Create address object from string."""

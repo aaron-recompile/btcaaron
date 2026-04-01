@@ -294,3 +294,46 @@ class Key:
     
     def __hash__(self) -> int:
         return hash(self.xonly)
+
+    def sign_taproot_script_bip118(
+        self,
+        tx,
+        txin_index: int,
+        utxo_scripts: list,
+        amounts: list[int],
+        tapleaf_script,
+        hash_type: int = 0x41,
+        annex: bytes | None = None,
+    ) -> str:
+        """
+        Tapscript signature using BIP118 ``Msg118`` / ``Ext118`` (e.g. ``hash_type=0x41``).
+
+        The leaf must use a BIP118 pubkey (``0x01`` || 32-byte x-only) before ``OP_CHECKSIG``.
+        Pass the underlying ``bitcoinutils.transactions.Transaction`` (not the btcaaron wrapper).
+        """
+        from bitcoinutils.script import Script as BUScript
+        from bitcoinutils.schnorr import schnorr_sign
+        from bitcoinutils.transactions import Transaction as BUTransaction
+        from bitcoinutils.utils import b_to_h
+
+        from .bip118 import bip118_sighash
+
+        if not isinstance(tx, BUTransaction):
+            raise TypeError("tx must be bitcoinutils.transactions.Transaction")
+        if not isinstance(tapleaf_script, BUScript):
+            raise TypeError("tapleaf_script must be bitcoinutils.script.Script")
+
+        digest = bip118_sighash(
+            tx,
+            txin_index,
+            utxo_scripts,
+            amounts,
+            tapleaf_script,
+            hash_type=hash_type,
+            annex=annex,
+        )
+        byte_key = self._private_key.to_bytes()
+        rand_aux = bytes(32)
+        sig = schnorr_sign(digest, byte_key, rand_aux)
+        sig += hash_type.to_bytes(1, "big")
+        return b_to_h(sig)
