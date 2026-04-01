@@ -29,8 +29,6 @@ examples/
 examples/*
 !examples/core_test/
 !examples/core_test/**
-!examples/chapter09_inscription/
-!examples/chapter09_inscription/**
 !examples/braidpool/
 !examples/braidpool/**
 
