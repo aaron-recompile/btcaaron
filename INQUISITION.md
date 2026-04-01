@@ -2,6 +2,7 @@
 
 This page tracks experimental opcode templates for Bitcoin Inquisition signet.
 
+
 Status:
 
 - Implemented as reusable script helpers in `btcaaron.script.templates`
@@ -10,12 +11,17 @@ Status:
 
 ## Scope
 
-Currently included templates:
+**Helpers in `btcaaron.script.templates`:**
 
-- `inq_cat_hashlock_script(expected_hash)` -> `OP_CAT OP_SHA256 <hash> OP_EQUAL`
-- `inq_csfs_script()` -> `OP_CHECKSIGFROMSTACK`
-- `inq_ctv_script(template_hash)` -> `<hash> OP_CHECKTEMPLATEVERIFY`
-- `inq_apo_checksig_script(signer)` / `inq_apo_program(signer)` -> BIP118 `<0x01||x-only> OP_CHECKSIG` (needs BIP118 consensus, not relayed on vanilla nodes)
+| Helper | Role |
+|--------|------|
+| `inq_cat_hashlock_script(expected_hash)` | `OP_CAT` + hash preimage check |
+| `inq_csfs_script()` | `OP_CHECKSIGFROMSTACK` |
+| `inq_ctv_script(template_hash)` | `OP_CHECKTEMPLATEVERIFY` (template hash on stack) |
+| `inq_apo_checksig_script` / `inq_apo_program` | Tapscript leaf for **BIP118** ANYPREVOUT spends (`0x01‖x-only` + `OP_CHECKSIG`, not ordinary BIP342 tapscript `CHECKSIG`). Enables Eltoo-style state updates without committing to a specific prevout. |
+| `inq_internalkey_equal_script` / `inq_internalkey_equal_program` | `OP_INTERNALKEY` + `<xonly>` + `OP_EQUAL` |
+| `inq_internalkey_csfs_script` / `inq_internalkey_csfs_program` | `OP_INTERNALKEY` + `OP_CHECKSIGFROMSTACK` |
+
 
 ## Quick usage
 
@@ -27,6 +33,8 @@ from btcaaron import (
     inq_csfs_script,
     inq_ctv_script,
     inq_apo_program,
+    inq_internalkey_equal_program,
+    inq_internalkey_csfs_program,
 )
 
 key = Key.from_wif("c...")  # signet/testnet WIF
@@ -36,26 +44,26 @@ cat_program = TapTree(internal_key=key, network="signet").custom(
     label="cat",
 ).build()
 
-# BIP118 (APO) single-leaf program — spend with .sign(key) on script path
 apo_program = inq_apo_program(key, network="signet")
 ```
 
-### BIP118 (ANYPREVOUT) notes
-
-- Leaf pushes a **33-byte** “BIP118 pubkey” (`0x01` || 32-byte x-only), then `OP_CHECKSIG`. This is **not** the same as ordinary tapscript `<xonly> OP_CHECKSIG`.
-- Signatures use **BIP118 sighash** (`Msg118`/`Ext118` + `TaggedHash("TapSighash", …)`); `Key.sign_taproot_script_bip118` appends the sighash byte (e.g. `0x41` = ALL|ANYPREVOUT).
-- **Eltoo / channel binding** uses the property that the digest does not commit to the specific prevout when using ANYPREVOUT (see `tests/test_bip118.py`).
 
 ## Further reading
 
-**Companion repo (binding-target experiments):** [bitcoin-signature-binding](https://github.com/aaron-recompile/bitcoin-signature-binding) — reproducible offline JSON + optional Signet scripts comparing message-bound CSFS, identity-bound internal-key+CSFS, and sighash-bound CHECKSIG.
+**Companion repo (binding experiments):** [bitcoin-signature-binding](https://github.com/aaron-recompile/bitcoin-signature-binding) — offline JSON + Signet scripts comparing CSFS, IK+CSFS, and ordinary `CHECKSIG` binding.
 
-**Signet / Inquisition blog series (Medium):**
+**Signet / Inquisition (Medium):**
 
 - [OP_CAT on Signet — concatenation, commitment, Bitcoin Inquisition](https://medium.com/@aaron.recompile/op-cat-on-signet-concatenation-commitment-and-bitcoin-inquisition-ed34a07866d6)
 - [OP_CHECKSIGFROMSTACK on Signet — sign anything, verify on stack](https://medium.com/@aaron.recompile/op-checksigfromstack-on-signet-sign-anything-verify-on-stack-9cf70ab07583)
 - [OP_CHECKTEMPLATEVERIFY on Signet — locking outputs at UTXO creation time](https://medium.com/@aaron.recompile/op-checktemplateverify-on-signet-locking-outputs-at-utxo-creation-time-1d623fbe3899)
 - [OP_INTERNALKEY + OP_CHECKSIGFROMSTACK on Signet — identity-bound authorization](https://medium.com/@aaron.recompile/op-internalkey-op-checksigfromstack-on-signet-identity-bound-authorization-04f0440557bc)
+- [OP_CAT + OP_CHECKSIGFROMSTACK on Signet — dynamic message, oracle authorization](https://medium.com/@aaron.recompile/op-cat-op-checksigfromstack-on-signet-dynamic-message-oracle-authorization-8c73e1ef5353)
+
+**Delving Bitcoin (threads):**
+
+- [Bitcoin Inquisition 29.2 (release / consensus features)](https://delvingbitcoin.org/t/bitcoin-inqusition-29-2/2236)
+- [What exactly is bound in CSFS, IK+CSFS, and CHECKSIG?](https://delvingbitcoin.org/t/what-exactly-is-bound-in-csfs-ik-csfs-and-checksig/2351)
 
 ## Notes
 
