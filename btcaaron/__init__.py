@@ -51,6 +51,10 @@ from .script import (
     inq_ctv_program_for_outputs,
     inq_apo_checksig_script,
     inq_apo_program,
+    inq_internalkey_equal_script,
+    inq_internalkey_csfs_script,
+    inq_internalkey_equal_program,
+    inq_internalkey_csfs_program,
 )
 from .node_rpc import (
     broadcast_tx_hex,
@@ -109,6 +113,10 @@ __all__ = [
     "inq_ctv_program_for_outputs",
     "inq_apo_checksig_script",
     "inq_apo_program",
+    "inq_internalkey_equal_script",
+    "inq_internalkey_csfs_script",
+    "inq_internalkey_equal_program",
+    "inq_internalkey_csfs_program",
     "broadcast_tx_hex",
     "find_utxo_for_address",
     "sats_from_rpc_amount",

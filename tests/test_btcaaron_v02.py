@@ -27,6 +27,10 @@ from btcaaron import (
     inq_ctv_program_for_outputs,
     inq_apo_checksig_script,
     inq_apo_program,
+    inq_internalkey_equal_script,
+    inq_internalkey_csfs_script,
+    inq_internalkey_equal_program,
+    inq_internalkey_csfs_program,
     derive_wif_from_tprv,
     taproot_descriptor_from_tprv,
     wif_secret_bytes,
@@ -205,6 +209,29 @@ class TestInquisitionTemplates:
         sig = tx_wrapped._tx.witnesses[0].stack[0]
         assert len(sig) == 130
         assert sig[-2:] == "41"
+
+    def test_internalkey_equal_template_hex(self):
+        alice = Key.from_wif(ALICE_WIF)
+        script = inq_internalkey_equal_script(alice)
+        assert (
+            script.to_hex()
+            == "cb" + "20" + ALICE_XONLY + "87"
+        )
+
+    def test_internalkey_csfs_template_hex(self):
+        assert inq_internalkey_csfs_script().to_hex() == "cbcc"
+
+    def test_internalkey_equal_program_leaf_matches_template(self):
+        alice = Key.from_wif(ALICE_WIF)
+        program = inq_internalkey_equal_program(alice, network="testnet")
+        leaf = program.leaf("internalkey")
+        assert leaf.script_hex == inq_internalkey_equal_script(alice).to_hex()
+
+    def test_internalkey_csfs_program_leaf_matches_template(self):
+        alice = Key.from_wif(ALICE_WIF)
+        program = inq_internalkey_csfs_program(alice, network="testnet")
+        leaf = program.leaf("ik_csfs")
+        assert leaf.script_hex == inq_internalkey_csfs_script().to_hex()
 
 
 class TestNodeRpcHelpers:

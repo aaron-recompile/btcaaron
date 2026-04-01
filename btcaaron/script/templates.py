@@ -351,3 +351,76 @@ def inq_apo_program(
         .bip118_checksig(apo_signer, label=label)
         .build()
     )
+
+
+# BIP 349 / OP_INTERNALKEY (Bitcoin Inquisition)
+_OP_INTERNALKEY = 0xCB
+
+
+def inq_internalkey_equal_script(internal_key: Union[Key, str, bytes]) -> RawScript:
+    """
+    Tapscript leaf: ``OP_INTERNALKEY <32-byte x-only pubkey> OP_EQUAL``.
+
+    Verifies the Taproot execution internal key matches the pushed x-only key.
+    Unlock with ``unlock_with([])`` (no extra witness stack items beyond the
+    script path control block).
+    """
+    if isinstance(internal_key, Key):
+        xonly_hex = internal_key.xonly
+    elif isinstance(internal_key, bytes):
+        if len(internal_key) != 32:
+            raise ValueError("internal_key must be 32 bytes")
+        xonly_hex = internal_key.hex()
+    else:
+        xonly_hex = _to_xonly_hex(internal_key)
+    script_hex = f"{_OP_INTERNALKEY:02x}" + _push_bytes_hex(xonly_hex) + "87"
+    return RawScript(script_hex)
+
+
+def inq_internalkey_csfs_script() -> RawScript:
+    """
+    Tapscript leaf: ``OP_INTERNALKEY OP_CHECKSIGFROMSTACK`` (BIP 349 + CSFS).
+
+    Witness convention: ``[signature, message]`` — pubkey comes from execution
+    context (``OP_INTERNALKEY``), not the witness.
+    """
+    return RawScript(f"{_OP_INTERNALKEY:02x}cc")
+
+
+def inq_internalkey_equal_program(
+    key: Key,
+    *,
+    network: str = "signet",
+    label: str = "internalkey",
+    unlock_hint: Optional[str] = "OP_INTERNALKEY <xonly> OP_EQUAL",
+):
+    """Single-leaf Taproot program: ``inq_internalkey_equal_script(key)``."""
+    from ..tree import TapTree
+
+    leaf = inq_internalkey_equal_script(key)
+    return (
+        TapTree(internal_key=key, network=network)
+        .custom(script=leaf, label=label, unlock_hint=unlock_hint)
+        .build()
+    )
+
+
+def inq_internalkey_csfs_program(
+    key: Key,
+    *,
+    network: str = "signet",
+    label: str = "ik_csfs",
+    unlock_hint: str = "OP_INTERNALKEY OP_CHECKSIGFROMSTACK",
+):
+    """Single-leaf Taproot program: ``inq_internalkey_csfs_script()``."""
+    from ..tree import TapTree
+
+    return (
+        TapTree(internal_key=key, network=network)
+        .custom(
+            script=inq_internalkey_csfs_script(),
+            label=label,
+            unlock_hint=unlock_hint,
+        )
+        .build()
+    )
