@@ -59,11 +59,15 @@ apo_program = inq_apo_program(key, network="signet")
 - [OP_CHECKTEMPLATEVERIFY on Signet — locking outputs at UTXO creation time](https://medium.com/@aaron.recompile/op-checktemplateverify-on-signet-locking-outputs-at-utxo-creation-time-1d623fbe3899)
 - [OP_INTERNALKEY + OP_CHECKSIGFROMSTACK on Signet — identity-bound authorization](https://medium.com/@aaron.recompile/op-internalkey-op-checksigfromstack-on-signet-identity-bound-authorization-04f0440557bc)
 - [OP_CAT + OP_CHECKSIGFROMSTACK on Signet — dynamic message, oracle authorization](https://medium.com/@aaron.recompile/op-cat-op-checksigfromstack-on-signet-dynamic-message-oracle-authorization-8c73e1ef5353)
+- [SIGHASH_ANYPREVOUT on Signet — when signatures stop binding to UTXOs](https://medium.com/@aaron.recompile/sighash-anyprevout-on-signet-when-signatures-stop-binding-to-utxos-eed4fc475668)
 
 **Delving Bitcoin (threads):**
 
 - [Bitcoin Inquisition 29.2 (release / consensus features)](https://delvingbitcoin.org/t/bitcoin-inqusition-29-2/2236)
 - [What exactly is bound in CSFS, IK+CSFS, and CHECKSIG?](https://delvingbitcoin.org/t/what-exactly-is-bound-in-csfs-ik-csfs-and-checksig/2351)
+- [BIP 118 signing from scratch — on-chain rebinding proof](https://delvingbitcoin.org/t/bip-118-signing-from-scratch-on-chain-rebinding-proof/2411)
+- [Eltoo state chain on Signet: three rounds, six transactions (APO + CTV)](https://delvingbitcoin.org/t/eltoo-state-chain-on-signet-three-rounds-six-transactions-apo-ctv/2413)
+- [Challenge: Covenants for Braidpool (reply)](https://delvingbitcoin.org/t/challenge-covenants-for-braidpool/1370/2)
 
 ## Notes
 
