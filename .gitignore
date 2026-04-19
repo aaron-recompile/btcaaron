@@ -31,6 +31,8 @@ examples/*
 !examples/core_test/**
 !examples/braidpool/
 !examples/braidpool/**
+!examples/eltoo/
+!examples/eltoo/**
 
 # Debug scripts
 debug_*.py

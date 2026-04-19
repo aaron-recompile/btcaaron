@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# Local fund/delegate/spend state files (regenerated on each run)
+.v2_fund_txid
+.v2_delegations.json
+.v2_state.json
+.v2_payout_addrs.json
