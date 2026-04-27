@@ -68,6 +68,7 @@ apo_program = inq_apo_program(key, network="signet")
 - [BIP 118 signing from scratch — on-chain rebinding proof](https://delvingbitcoin.org/t/bip-118-signing-from-scratch-on-chain-rebinding-proof/2411)
 - [Eltoo state chain on Signet: three rounds, six transactions (APO + CTV)](https://delvingbitcoin.org/t/eltoo-state-chain-on-signet-three-rounds-six-transactions-apo-ctv/2413)
 - [Challenge: Covenants for Braidpool (reply)](https://delvingbitcoin.org/t/challenge-covenants-for-braidpool/1370/2)
+- [Eltoo state chain on Signet again: three rounds, two transactions (CSFS + CTV ladder, no CAT)](https://delvingbitcoin.org/t/2430)
 
 ## Notes
 
