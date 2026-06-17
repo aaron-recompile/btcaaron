@@ -11,6 +11,8 @@ from typing import List, Tuple
 
 # Tapscript leaf version per BIP 342
 LEAF_VERSION = 0xC0
+# GSR (BIP-440/441) Tapscript v2 dialect — restored opcodes, val64, varops budget.
+LEAF_VERSION_TAPSCRIPT_V2 = 0xC2
 
 
 def tagged_hash(tag: str, data: bytes) -> bytes:

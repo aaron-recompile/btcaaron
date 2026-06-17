@@ -245,21 +245,24 @@ class TapTree:
         return self
     
     def custom(self, script: Union["Script", "RawScript"], *, label: str,
-               unlock_hint: str = None) -> "TapTree":
+               unlock_hint: str = None, leaf_version: int = 0xc0) -> "TapTree":
         """
         Add a custom script leaf.
-        
+
         Unlock: .unlock_with([witness_element_1, ...])
-        
+
         Args:
             script: Script or RawScript (RawScript for non-standard opcodes e.g. Inquisition)
             label: Required - custom scripts must have a label
             unlock_hint: Description of how to unlock (for explain())
+            leaf_version: BIP-341 tapleaf version. Default 0xc0 = TAPSCRIPT_V1 (Inquisition).
+                          Use 0xc2 = LEAF_VERSION_TAPSCRIPT_V2 for GSR (BIP-440/441) v2 dialect.
         """
         self._leaves.append({
             "label": label,
             "index": self._next_index(),
             "script_type": "CUSTOM",
+            "leaf_version": leaf_version,
             "params": {
                 "script": script,
                 "unlock_hint": unlock_hint,

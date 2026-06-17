@@ -146,11 +146,18 @@ class TaprootProgram:
                 return bytes.fromhex(s.to_hex())
 
             script_bytes_list = [_script_to_bytes(s) for s in scripts]
-            leaf_hashes = [tapmath.tapleaf_hash(b) for b in script_bytes_list]
+            # Per-leaf BIP-341 leaf_version. Defaults to 0xc0 for back-compat;
+            # leaves explicitly built with leaf_version=0xc2 use TAPSCRIPT_V2
+            # (GSR / BIP-440/441 v2 dialect).
+            leaf_versions = [leaf.get("leaf_version", tapmath.LEAF_VERSION)
+                             for leaf in self._raw_leaves]
+            leaf_hashes = [tapmath.tapleaf_hash(b, lv)
+                           for b, lv in zip(script_bytes_list, leaf_versions)]
             merkle_root = tapmath.compute_merkle_root(leaf_hashes)
 
             self._use_tapmath = True
             self._leaf_hashes = leaf_hashes
+            self._leaf_versions = leaf_versions
             self._merkle_root = merkle_root
             self._tree = None
 

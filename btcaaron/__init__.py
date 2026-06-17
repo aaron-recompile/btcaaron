@@ -36,6 +36,7 @@ from .bip118 import (
     bip118_sighash,
 )
 from .tree import TapTree, TaprootProgram, LeafDescriptor
+from .tree.tapmath import LEAF_VERSION, LEAF_VERSION_TAPSCRIPT_V2
 from .spend import SpendBuilder, Transaction
 from .script import (
     Script,
@@ -132,4 +133,8 @@ __all__ = [
     "BuildError",
     "BroadcastError",
     "ValidationError",
+
+    # GSR / Tapscript v2 (BIP-440/441)
+    "LEAF_VERSION",
+    "LEAF_VERSION_TAPSCRIPT_V2",
 ]
