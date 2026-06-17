@@ -16,6 +16,9 @@ if TYPE_CHECKING:
 # UTXO as (txid, vout, sats)
 UTXO = Tuple[str, int, int]
 
+# External input descriptor
+ExternalInput = Tuple[str, int, int, str, Optional[Key], object]
+
 
 class SpendBuilder:
     """
@@ -62,6 +65,9 @@ class SpendBuilder:
         
         # Transaction data: list of (txid, vout, sats)
         self._utxos: List[UTXO] = []
+
+        # External inputs from other addresses (appended after program UTXOs)
+        self._external_inputs: List[ExternalInput] = []
         
         self._outputs: List[tuple] = []  # [(address, sats), ...]
         
@@ -104,6 +110,42 @@ class SpendBuilder:
         self._utxos = [(str(txid), int(vout), int(sats)) for txid, vout, sats in utxos]
         return self
     
+    def add_external_input(
+        self,
+        txid: str,
+        vout: int,
+        sats: int,
+        *,
+        script_pubkey_hex: str,
+        sign_keypath: Optional[Key] = None,
+        keypath_tweak=None,
+    ) -> "SpendBuilder":
+        """
+        Append an input from a different address (not this program's P2TR).
+
+        The input appears **after** all program UTXOs in the transaction.
+        Its scriptPubKey and amount are included in the sighash preimage
+        arrays so that APO / BIP341 digests for the program inputs remain
+        correct.
+
+        Args:
+            txid: Funding transaction ID
+            vout: Output index
+            sats: Amount in satoshis
+            script_pubkey_hex: The full scriptPubKey of this UTXO (hex)
+            sign_keypath: If provided, sign this input via Taproot key-path.
+                          If None the witness slot is left empty -- caller
+                          must fill it manually on the raw tx after build().
+            keypath_tweak: Script tree or merkle root for key-path tweak.
+                           Pass ``program._tree`` or ``program._merkle_root``
+                           when the external UTXO has a TapTree (not bare P2TR).
+                           None means bare P2TR (no tweak).
+        """
+        self._external_inputs.append(
+            (txid, vout, sats, script_pubkey_hex, sign_keypath, keypath_tweak)
+        )
+        return self
+
     # ══════════════════════════════════════════════════════════════
     # Output
     # ══════════════════════════════════════════════════════════════
@@ -300,6 +342,11 @@ class SpendBuilder:
                     txin.sequence = struct.pack('<I', 0xfffffffd)
             txins.append(txin)
 
+        for ext_txid, ext_vout, _ext_sats, _spk_hex, _sign_key, _tweak in self._external_inputs:
+            txin = TxInput(ext_txid, ext_vout)
+            txin.sequence = struct.pack('<I', 0xfffffffd)
+            txins.append(txin)
+
         txouts = []
         for addr_str, sats in self._outputs:
             addr_obj = self._address_from_string(addr_str)
@@ -311,6 +358,7 @@ class SpendBuilder:
         """Build key-path spending transaction."""
         from bitcoinutils.transactions import Transaction as BUTransaction
         from bitcoinutils.transactions import TxInput, TxOutput, TxWitnessInput
+        from bitcoinutils.script import Script as BUScript
         import struct
         
         # Create inputs
@@ -324,6 +372,13 @@ class SpendBuilder:
             txins.append(txin)
             script_pub_keys.append(self._program._addr_obj.to_script_pub_key())
             amounts.append(sats)
+
+        for ext_txid, ext_vout, ext_sats, spk_hex, _sign_key, _tweak in self._external_inputs:
+            txin = TxInput(ext_txid, ext_vout)
+            txin.sequence = struct.pack('<I', 0xfffffffd)
+            txins.append(txin)
+            script_pub_keys.append(BUScript.from_raw(spk_hex))
+            amounts.append(ext_sats)
         
         # Create outputs
         txouts = []
@@ -344,7 +399,7 @@ class SpendBuilder:
             else self._program._tree
         )
         
-        # Sign each input
+        # Sign each program input
         for i in range(len(self._utxos)):
             sig = key._internal.sign_taproot_input(
                 tx, i,
@@ -354,8 +409,25 @@ class SpendBuilder:
                 tapleaf_scripts=scripts_for_tweak
             )
             tx.witnesses.append(TxWitnessInput([sig]))
+
+        # Sign or leave empty witness for external inputs
+        ext_offset = len(self._utxos)
+        for j, (_txid, _vout, _sats, _spk, sign_key, tweak) in enumerate(self._external_inputs):
+            idx = ext_offset + j
+            if sign_key is not None:
+                sig = sign_key._internal.sign_taproot_input(
+                    tx, idx,
+                    script_pub_keys,
+                    amounts,
+                    script_path=False,
+                    tapleaf_scripts=tweak,
+                )
+                tx.witnesses.append(TxWitnessInput([sig]))
+            else:
+                tx.witnesses.append(TxWitnessInput([]))
         
         total_sats = sum(sats for _, _, sats in self._utxos)
+        total_sats += sum(s for _, _, s, _, _, _ in self._external_inputs)
         return Transaction(tx, self._program, None, total_sats)
     
     def _build_script_path(self) -> Transaction:
@@ -377,10 +449,15 @@ class SpendBuilder:
             )
         leaf = leaf_list[0]
         script_type = leaf.script_type
+
+        # Sighash arrays must cover ALL inputs (program + external).
         script_pub_keys = [self._program._addr_obj.to_script_pub_key()] * len(self._utxos)
         amounts = [sats for _, _, sats in self._utxos]
+        for _ext_txid, _ext_vout, ext_sats, spk_hex, _sign_key, _tweak in self._external_inputs:
+            script_pub_keys.append(BUScript.from_raw(spk_hex))
+            amounts.append(ext_sats)
         
-        # Create inputs
+        # Create program inputs
         txins = []
         for txid, vout, sats in self._utxos:
             if self._sequence is not None:
@@ -391,7 +468,13 @@ class SpendBuilder:
                 txin = TxInput(txid, vout, sequence=seq.for_input_sequence())
             else:
                 txin = TxInput(txid, vout)
-                txin.sequence = struct.pack('<I', 0xfffffffd)  # RBF enabled
+                txin.sequence = struct.pack('<I', 0xfffffffd)
+            txins.append(txin)
+
+        # Append external inputs
+        for ext_txid, ext_vout, _ext_sats, _spk_hex, _sign_key, _tweak in self._external_inputs:
+            txin = TxInput(ext_txid, ext_vout)
+            txin.sequence = struct.pack('<I', 0xfffffffd)
             txins.append(txin)
         
         # Create outputs
@@ -402,7 +485,7 @@ class SpendBuilder:
         
         tx = BUTransaction(txins, txouts, has_segwit=True)
         
-        # Build witness for each input (each input needs its own signature / script path)
+        # Build witness for each program input
         for input_idx in range(len(self._utxos)):
             leaf = leaf_list[input_idx]
             script = self._program._scripts[leaf.index]
@@ -516,8 +599,25 @@ class SpendBuilder:
                 witness_elements.append(script.to_hex())
                 witness_elements.append(cb_hex)
             tx.witnesses.append(TxWitnessInput(witness_elements))
+
+        # Sign or leave empty witness for external inputs
+        ext_offset = len(self._utxos)
+        for j, (_txid, _vout, _sats, _spk, sign_key, tweak) in enumerate(self._external_inputs):
+            idx = ext_offset + j
+            if sign_key is not None:
+                sig = sign_key._internal.sign_taproot_input(
+                    tx, idx,
+                    script_pub_keys,
+                    amounts,
+                    script_path=False,
+                    tapleaf_scripts=tweak,
+                )
+                tx.witnesses.append(TxWitnessInput([sig]))
+            else:
+                tx.witnesses.append(TxWitnessInput([]))
         
         total_sats = sum(sats for _, _, sats in self._utxos)
+        total_sats += sum(s for _, _, s, _, _, _ in self._external_inputs)
         return Transaction(tx, self._program, leaf_list[0], total_sats)
     
     def _address_from_string(self, address: str):
