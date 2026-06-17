@@ -30,8 +30,7 @@ _reference/
 examples/
 !examples/
 examples/*
-!examples/core_test/
-!examples/core_test/**
+# core_test/ is internal strategy/teaching material — kept local, never published
 !examples/braidpool/
 !examples/braidpool/**
 !examples/eltoo/
