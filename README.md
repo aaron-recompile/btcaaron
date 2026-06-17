@@ -1,7 +1,5 @@
 # btcaaron<img src="images/mark.png" width="52" alt="btcaaron mark" style="margin-left:4px;vertical-align:middle" />
 
-[![Supported by OpenSats](https://img.shields.io/badge/supported%20by-OpenSats-orange?style=flat-square&logo=bitcoin)](https://opensats.org)
-
 A pragmatic Bitcoin toolkit for Taproot engineering — Legacy, SegWit, and Taproot flows, PSBT, and optional **Signet** / **Bitcoin Inquisition** opcode templates (OP_CAT, OP_CHECKSIGFROMSTACK, OP_CHECKTEMPLATEVERIFY, OP_INTERNALKEY, BIP118 ANYPREVOUT (APO)).
 
 Designed for reproducible testnet and signet experiments, educational workflows, and script-path development.
@@ -227,8 +225,7 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
 
 ## Acknowledgments
 
-Development of btcaaron is supported by an [OpenSats](https://opensats.org) grant.  
-OpenSats supports open-source contributors working on Bitcoin and related freedom tech.
+btcaaron received early-stage support from an [OpenSats](https://opensats.org) grant.
 
 ## Author
 
