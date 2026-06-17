@@ -57,6 +57,7 @@ from .script import (
     inq_internalkey_equal_program,
     inq_internalkey_csfs_program,
 )
+from .sigmsg import compute_sigmsg_preimage, compute_sigmsg_digest
 from .node_rpc import (
     broadcast_tx_hex,
     find_utxo_for_address,
@@ -118,6 +119,8 @@ __all__ = [
     "inq_internalkey_csfs_script",
     "inq_internalkey_equal_program",
     "inq_internalkey_csfs_program",
+    "compute_sigmsg_preimage",
+    "compute_sigmsg_digest",
     "broadcast_tx_hex",
     "find_utxo_for_address",
     "sats_from_rpc_amount",
