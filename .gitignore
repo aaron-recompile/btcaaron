@@ -35,6 +35,8 @@ examples/*
 !examples/braidpool/**
 !examples/eltoo/
 !examples/eltoo/**
+!examples/taproot_engineering_paper/
+!examples/taproot_engineering_paper/**
 
 # Debug scripts
 debug_*.py
