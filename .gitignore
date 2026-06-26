@@ -37,6 +37,8 @@ examples/*
 !examples/eltoo/**
 !examples/taproot_engineering_paper/
 !examples/taproot_engineering_paper/**
+!examples/csfs_cat_covenant_parity/
+!examples/csfs_cat_covenant_parity/**
 
 # Debug scripts
 debug_*.py
