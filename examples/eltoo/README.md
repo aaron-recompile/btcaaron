@@ -86,11 +86,35 @@ Reproduced run on Inquisition signet (April 2026):
 
 The spend transaction has 3 outputs (CTV-enforced): Alice 40,000 / Bob 35,000 / Carol 25,000, plus 1,000 sats fee.
 
+## Third variant: TEMPLATEHASH + CSFS + INTERNALKEY (BIP 446 / 448)
+
+[`th_csfs_ik_eltoo.py`](th_csfs_ik_eltoo.py) runs the same scenario with the opcode set Bitcoin Inquisition 29.4 activated on signet (TEMPLATEHASH active since block 314928), following the scripts in `instagibbs/bolts@2026-01-eltoo_th`:
+
+```
+EXPR_UPDATE(0)   = OP_TEMPLATEHASH OP_INTERNALKEY OP_CHECKSIGFROMSTACK                    3 B
+EXPR_UPDATE(n>0) = ... OP_VERIFY <500000000+n> OP_CHECKLOCKTIMEVERIFY                     10 B
+EXPR_SETTLE(n)   = OP_TEMPLATEHASH <template_hash(settle_n)> OP_EQUAL                     35 B
+```
+
+The update signature is over the BIP 446 template hash (no prevouts), so it rebinds to whichever older state is on chain; the update witness is 143 B regardless of state count. The template hash itself is in [`btcaaron/templatehash.py`](../../btcaaron/templatehash.py).
+
+Reference run (Inquisition 29.4 signet, October 2026): stale state U1 published, then U3 (signed before any state output existed) rebinds onto it, skipping state 2.
+
+| Phase | TxID |
+|-------|------|
+| Fund     | [`1163d3d5…9c259124`](https://mempool.space/signet/tx/1163d3d5ae78069dd41ad951de47460358db689b3b5d6b951dbb57399c259124) |
+| U1 (stale) | [`22c0c67b…02188692`](https://mempool.space/signet/tx/22c0c67b33f6620fe9165dca835408de91f4dd873018ab1c06a26a2f02188692) |
+| U3 rebinds onto S1 | [`4a11cfca…fdea15007`](https://mempool.space/signet/tx/4a11cfca7e35564f932ee30a66dec9f9bbd95cdbc8ad8b34190b4c8fdea15007) |
+| Settle 3 | [`e7476180…6e8001568`](https://mempool.space/signet/tx/e7476180b2f784ce81c859c6a9d48a0f72c0e72937ac1cd37e183ec6e8001568) |
+
+PoC deviations from the BOLT draft: single key K (no MuSig2), nVersion 2 with no P2A / OP_RETURN outputs, no HTLCs.
+
 ## Files
 
 | File | Role |
 |------|------|
 | `csfs_ladder_ctv.py` | Main: `--fund` / `--delegate` / `--spend` |
+| `th_csfs_ik_eltoo.py` | TEMPLATEHASH + CSFS + IK variant: `--setup` / `--fund` / `--stale` / `--rebind` / `--settle` and mempool checks |
 | `opcodes.py` | Inquisition opcode constants (CSFS, CTV, etc.) and minimal `build_script` / `push_bytes` helpers |
 | `eltoo_config.py` | `bitcoin-cli` RPC wrappers (mirrors `examples/braidpool/braidpool_config.py`) |
 | `load_local_env.py` | Optional repo-root `.env` loader |

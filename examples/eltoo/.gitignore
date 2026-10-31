@@ -7,3 +7,6 @@ __pycache__/
 .v2_delegations.json
 .v2_state.json
 .v2_payout_addrs.json
+
+# TEMPLATEHASH eltoo local state (signatures, txids, check results)
+.th_eltoo_state.json
