@@ -10,3 +10,6 @@ __pycache__/
 
 # TEMPLATEHASH eltoo local state (signatures, txids, check results)
 .th_eltoo_state.json
+
+# APOAS eltoo local state
+.apoas_eltoo_state.json

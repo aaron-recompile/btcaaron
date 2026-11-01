@@ -109,12 +109,34 @@ Reference run (Inquisition 29.4 signet, October 2026): stale state U1 published,
 
 PoC deviations from the BOLT draft: single key K (no MuSig2), nVersion 2 with no P2A / OP_RETURN outputs, no HTLCs.
 
+## Fourth variant: ANYPREVOUTANYSCRIPT + CLTV + CTV (BIP 118 / 119)
+
+[`apoas_ctv_eltoo.py`](apoas_ctv_eltoo.py) runs the same stale-state override with the original eltoo construction: an APOAS (`0xc1`) signature plus a CLTV state number, settled by CTV.
+
+```
+UPDATE(0)   = OP_1 OP_CHECKSIG                                                  2 B
+UPDATE(n>0) = <500000000+n> OP_CHECKLOCKTIMEVERIFY OP_DROP OP_1 OP_CHECKSIG     9 B
+SETTLE(n)   = <ctv_hash(settle_n)> OP_CHECKTEMPLATEVERIFY                       34 B
+```
+
+APOAS commits to none of the outpoint, spent amount, spent scriptPubKey or tapleaf, so the update signature rebinds to any older state. The update witness is 143 B (65 B sig + 9 B leaf + 65 B control block), the same as the TEMPLATEHASH variant: the APO signature carries one extra sighash byte, the TEMPLATEHASH leaf one extra script byte.
+
+Reference run (Inquisition signet, November 2026): U1–U3 signed before funding; stale U1 published, then U3 overrides it, skipping state 2. Mempool checks: wrong CLTV state number and early settlement are rejected, U2 rebinds onto S1, and a settlement with swapped amounts fails CTV.
+
+| Phase | TxID |
+|-------|------|
+| Fund     | [`353dd22a…3c92ae0`](https://mempool.space/signet/tx/353dd22a1b506d97b00efd80a73b944e888dd2d0386a7ceaadb67f8eb3c92ae0) |
+| U1 (stale) | [`c47fb794…f0c5807`](https://mempool.space/signet/tx/c47fb79420d977eacbcf8087a14513fedd02b1f35e922b908cce0e5dcf0c5807) |
+| U3 overrides S1 | [`68a7405e…a5336d28`](https://mempool.space/signet/tx/68a7405e5541a169793d4b88b07b564618be5ab0c28d86b71bda5e0fa5336d28) |
+| Settle 3 | [`41198470…fe2a4788`](https://mempool.space/signet/tx/411984708c58071787f29c93816a82dc25a846017a272c3b77b5069afe2a4788) |
+
 ## Files
 
 | File | Role |
 |------|------|
 | `csfs_ladder_ctv.py` | Main: `--fund` / `--delegate` / `--spend` |
 | `th_csfs_ik_eltoo.py` | TEMPLATEHASH + CSFS + IK variant: `--setup` / `--fund` / `--stale` / `--rebind` / `--settle` and mempool checks |
+| `apoas_ctv_eltoo.py` | APOAS + CLTV + CTV variant: same phases, `--status` prints sizes |
 | `opcodes.py` | Inquisition opcode constants (CSFS, CTV, etc.) and minimal `build_script` / `push_bytes` helpers |
 | `eltoo_config.py` | `bitcoin-cli` RPC wrappers (mirrors `examples/braidpool/braidpool_config.py`) |
 | `load_local_env.py` | Optional repo-root `.env` loader |
