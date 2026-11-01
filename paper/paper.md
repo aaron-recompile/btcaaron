@@ -103,7 +103,7 @@ reference generated from the docstrings is in `docs/API.md`.
 `btcaaron` is the construction and verification layer for a series of on-chain covenant
 experiments on Bitcoin Inquisition signet. Its `examples/` directory and companion
 repositories reproduce: output and input binding with `OP_CAT` and
-`OP_CHECKSIGFROMSTACK`, and an eltoo-style [@eltoo] state chain built from a
+`OP_CHECKSIGFROMSTACK`, and an eltoo-style [@eltoo] state chain built from an
 `OP_CHECKSIGFROMSTACK` delegation ladder with `OP_CHECKTEMPLATEVERIFY` settlement
 [@zhang2026parity]; ANYPREVOUT signing from scratch with an on-chain rebinding proof
 [@zhang2026apo]; and a six-transaction eltoo state chain using ANYPREVOUT
