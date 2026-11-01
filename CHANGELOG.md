@@ -2,7 +2,7 @@
 
 All notable changes to btcaaron. Versions follow the releases published on PyPI.
 
-## Unreleased (on `main`)
+## 0.3.0 — 2026-11-01
 
 - BIP 446 `OP_TEMPLATEHASH` template hash (`btcaaron.templatehash`), cross-checked against Bitcoin Inquisition v29.4; TEMPLATEHASH + CSFS + IK eltoo example.
 - BIP 341 signature-message preimage module (`compute_sigmsg_preimage`, `compute_sigmsg_digest`).

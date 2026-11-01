@@ -1,6 +1,6 @@
 # btcaaron API reference
 
-Generated from the docstrings of btcaaron 0.2.3 (`tools/gen_api.py`). Everything listed is importable from the top-level `btcaaron` package unless a module path is shown.
+Generated from the docstrings of btcaaron 0.3.0 (`tools/gen_api.py`). Everything listed is importable from the top-level `btcaaron` package unless a module path is shown.
 
 ## Keys
 
