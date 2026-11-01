@@ -40,8 +40,9 @@ Research on Bitcoin script and covenant proposals increasingly rests on transact
 confirmed on a public network rather than on argument alone. For that evidence to be
 checkable, the construction must be reproducible: another person needs to regenerate
 the same scripts and signature messages from a short program and check that the published
-witnesses satisfy them. With fixed keys, `btcaaron` signs deterministically, so its tests
-rebuild previously confirmed transactions byte for byte.
+witnesses satisfy them. Its tests rebuild previously confirmed testnet transactions from the
+same inputs and outputs and verify that their non-witness serializations produce the
+original TXIDs.
 `btcaaron` targets three groups: protocol researchers who prototype covenant
 constructions on Bitcoin Inquisition signet, developers learning Taproot script-path
 spending, and educators who need worked examples that run against a real network.
@@ -109,8 +110,8 @@ real transactions are skipped by default. Correctness is checked against externa
 references: the official BIP-341 test vectors (signature messages for every sighash type),
 88 vectors generated with Bitcoin Inquisition's own test framework for the BIP-118
 signature message (all six ANYPREVOUT hash types, with and without an annex) and the
-BIP-446 template hash, and the TXIDs of previously confirmed testnet transactions, which
-the builders reproduce exactly. Continuous integration runs the suite on Python 3.10–3.12. An API
+BIP-446 template hash, and previously confirmed testnet transactions, whose non-witness
+serializations and TXIDs the builders reproduce. Continuous integration runs the suite on Python 3.10–3.12. An API
 reference generated from the docstrings is in `docs/API.md`.
 
 # Research impact statement
@@ -139,7 +140,9 @@ underlying model was not recorded) and Anthropic Claude via Claude Code (Claude 
 5.5). They were used for code generation and refactoring of library modules (including the
 Bitcoin Inquisition script templates and the BIP 118 and BIP 446 hash implementations), test
 scaffolding, documentation (README, `INQUISITION.md`, example READMEs, the generated API
-reference) and for drafting and copy-editing this paper. For the API, the assistants
+reference) and for drafting and copy-editing this paper. OpenAI ChatGPT (model version not
+recorded) was used to review drafts of this paper; the author checked each suggestion against
+the code before adopting it. For the API, the assistants
 proposed several alternative designs; the author evaluated them and decided the final
 architecture. The choice of experiments and the correctness criteria were the author's.
 
@@ -155,7 +158,9 @@ documentation and text.
 
 # Acknowledgements
 
-Early development of `btcaaron` was supported by a grant from OpenSats. We thank the
+Early development of `btcaaron` was supported by a grant from OpenSats. The funder had no
+role in the software design, the experiments, the validation or the preparation of this
+paper. We thank the
 contributors to `btcaaron` and the maintainers of Bitcoin Inquisition and
 `python-bitcoin-utils`.
 
