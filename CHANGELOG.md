@@ -11,6 +11,8 @@ All notable changes to btcaaron. Versions follow the releases published on PyPI.
 - BIP 118 ANYPREVOUT signature message (`bip118_sighash`, `Key.sign_taproot_script_bip118`, `TapTree.bip118_checksig`) and per-input script-path signing.
 - Inquisition templates for `OP_INTERNALKEY` (`inq_internalkey_*`).
 - Reproduction packages in `examples/`: eltoo (CSFS ladder + CTV), Braidpool, Taproot engineering paper, CSFS+CAT covenant parity.
+- Reference-vector tests: BIP 341 wallet test vectors, and BIP 118 / BIP 446 vectors generated with Bitcoin Inquisition v29.4's test framework (`tools/gen_inquisition_vectors.py`).
+- `examples/verify_onchain.py`: key-free check that every transaction cited by the examples is confirmed and hashes to its TXID.
 - API reference (`docs/API.md`), CONTRIBUTING guide, CI, MIT `LICENSE` file.
 
 ## 0.2.3 — 2026-03-22

@@ -28,7 +28,7 @@ Production-tested on testnet with real transactions:
 
 ### Available Now (v0.2.3 - Alpha Preview)
 
-Testnet-verified with real transactions (144 automated tests; CI runs them on Python 3.10–3.12):
+Testnet-verified with real transactions (244 automated tests, including BIP 341 and Bitcoin Inquisition reference vectors; CI runs them on Python 3.10–3.12):
 
 - Declarative Taproot tree builder (`.hashlock()`, `.multisig()`, `.timelock()`, `.checksig()`)
 - Script-path and key-path spend constructors

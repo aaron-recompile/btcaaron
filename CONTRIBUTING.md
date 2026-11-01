@@ -17,7 +17,7 @@ python -m pip install -e . pytest
 python -m pytest -q
 ```
 
-Supported Python versions are 3.10–3.12. A few tests need network access and are skipped when it is unavailable.
+Supported Python versions are 3.10–3.12. Five interactive tests that broadcast real transactions are skipped by default. A few legacy v0.1 tests (UTXO scan, balance check) query public testnet block explorers; the v0.2 tests and the reference-vector tests run offline.
 
 ## Pull requests
 
