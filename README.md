@@ -11,8 +11,8 @@ If you find btcaaron useful, a GitHub star is appreciated.
 
 ## Current Status
 
-**v0.3.0 (alpha)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
-Current focus is release hardening: broader validation coverage, documentation alignment, and contributor testing feedback.
+**v0.3.0** — Taproot tree building, script-path and key-path spending, signature-message access, BIP 118 / BIP 446 hashing, Bitcoin Inquisition script templates and PSBT v0/v2 are implemented and tested, including against BIP 341 and Bitcoin Inquisition reference vectors.  
+The covenant opcodes it targets are draft proposals that are active only on Bitcoin Inquisition signet, so the API tracks those drafts and may change between minor versions.
 
 ## Features
 
@@ -36,11 +36,10 @@ Testnet-verified with real transactions (244 automated tests, including BIP 341 
 - All 5 spend paths verified: hashlock, multisig, checksig, CSV timelock, keypath
 - Real transaction TXID reproduction tests
 
-### Future (v0.3.x+)
+### Next
 
-- PSBT v2 hardening and broader interoperability validation
-- Custom script templates
-- Multi-input/output transactions
+- PSBT interoperability testing against other wallets and signers
+- Tracking revisions of the draft covenant BIPs as Bitcoin Inquisition updates them
 
 ## Positioning (Quick Comparison)
 
@@ -114,7 +113,7 @@ print(program.address)  # tb1p...
 
 # Fund commit address without leaving IDE (auto UTXO selection)
 from btcaaron import fund_program
-# txid = fund_program(wif, program, 10_000)  # 打币到 program.address
+# txid = fund_program(wif, program, 10_000)  # fund program.address
 
 tx = (program.spend("hash")
     .from_utxo("abc123...", 0, sats=1200)
@@ -229,7 +228,7 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
   - default call blocks mainnet broadcast unless `allow_mainnet=True`
   - `dry_run=True` is available for no-side-effect routing checks
   - recommended smoke script: `python3 examples/core_test/scenarios/mainnet_readiness_smoke.py`
-- **v0.3.0 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
+- **v0.3.0 Status**: the features above are implemented and tested on testnet, regtest and Bitcoin Inquisition signet; mainnet use remains experimental and guarded.
 
 ## Acknowledgments
 
