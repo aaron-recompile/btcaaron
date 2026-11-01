@@ -39,7 +39,9 @@ rebuilt and re-checked by someone else.
 Research on Bitcoin script and covenant proposals increasingly rests on transactions
 confirmed on a public network rather than on argument alone. For that evidence to be
 checkable, the construction must be reproducible: another person needs to regenerate
-the same script, the same signature message and the same witness from a short program.
+the same scripts and signature messages from a short program and check that the published
+witnesses satisfy them. With fixed keys, `btcaaron` signs deterministically, so its tests
+rebuild previously confirmed transactions byte for byte.
 `btcaaron` targets three groups: protocol researchers who prototype covenant
 constructions on Bitcoin Inquisition signet, developers learning Taproot script-path
 spending, and educators who need worked examples that run against a real network.
@@ -90,8 +92,9 @@ outputs and unlocking data, signs, and assembles the witness; signature ordering
 automatically. Network access (block explorers, a local node over RPC) is isolated in a
 `network` module so that construction and verification work offline.
 
-For covenant work the key design choice is transparency. `sigmsg` returns the exact
-preimage that a node hashes when it verifies a Taproot signature, so that experiments
+For covenant work the key design choice is transparency. `sigmsg` returns the complete
+message that is tagged-hashed into a Taproot signature hash (the epoch byte, the BIP-341
+`SigMsg` fields and, for script-path spends, the BIP-342 extension), so that experiments
 can split it into fields, feed it to `OP_CHECKSIGFROMSTACK`, or detect which sighash
 flag a signer used. `bip118` implements the ANYPREVOUT message (`Msg118`/`Ext118`)
 from the specification, and `templatehash` implements BIP-446, cross-checked against the
@@ -120,8 +123,8 @@ repositories reproduce: output and input binding with `OP_CAT` and
 [@zhang2026parity]; ANYPREVOUT signing from scratch with an on-chain rebinding proof
 [@zhang2026apo]; and a six-transaction eltoo state chain using ANYPREVOUT
 [@zhang2026eltoo]. Each package lists the confirmed transaction IDs, and
-`examples/verify_onchain.py` checks without private keys or a node that every cited
-transaction is confirmed and that its raw bytes hash to the cited ID; the companion
+`examples/verify_onchain.py`, without private keys or a local node, checks that every cited
+transaction is confirmed and recomputes its TXID from the non-witness serialization; the companion
 repositories `sighash-prevout-binding`, `eltoo-apo-state-chain` and
 `braidpool-rca-covenant` add claim-by-claim key-free verifiers. Outside contributors have
 extended the library (support for arbitrary leaf counts, duplicate-label checks) and
