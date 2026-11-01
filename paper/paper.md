@@ -40,9 +40,9 @@ Research on Bitcoin script and covenant proposals increasingly rests on transact
 confirmed on a public network rather than on argument alone. For that evidence to be
 checkable, the construction must be reproducible: another person needs to regenerate
 the same scripts and signature messages from a short program and check that the published
-witnesses satisfy them. With fixed keys, `btcaaron` signs deterministically, and its tests
-rebuild previously confirmed testnet transactions from the same inputs, checking that the
-rebuilt transactions have the original TXIDs.
+witnesses satisfy them. Its tests rebuild previously confirmed testnet transactions from the
+same inputs and outputs and verify that their non-witness serializations produce the
+original TXIDs.
 `btcaaron` targets three groups: protocol researchers who prototype covenant
 constructions on Bitcoin Inquisition signet, developers learning Taproot script-path
 spending, and educators who need worked examples that run against a real network.

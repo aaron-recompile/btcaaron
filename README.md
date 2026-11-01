@@ -113,7 +113,7 @@ print(program.address)  # tb1p...
 
 # Fund commit address without leaving IDE (auto UTXO selection)
 from btcaaron import fund_program
-# txid = fund_program(wif, program, 10_000)  # fund program.address
+# txid = fund_program(wif, program, 10_000)
 
 tx = (program.spend("hash")
     .from_utxo("abc123...", 0, sats=1200)
