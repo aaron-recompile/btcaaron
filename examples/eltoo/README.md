@@ -130,3 +130,9 @@ The rekey/ladder pattern was sketched conceptually by Jeremy Rubin in [a Decembe
 This is a **feasibility demonstration on already-activated opcodes**, not a production LN-Symmetry channel. Witness size grows O(N) with state count (~160B per additional hop); the maximum hop count is hardcoded at funding time. For high-throughput LN channels, O(1)-witness alternatives (PAIRCOMMIT, OP_TXHASH) would be preferable — none are activated as of this writing.
 
 Long-form analysis lives outside this repo; this folder is **runnable code + this README only**.
+
+## Key-free verification
+
+`python examples/verify_onchain.py` checks, with no keys and no node, that the transactions of both
+eltoo variants in this folder (CSFS ladder: `92efc475...`, `b96324da...`; TEMPLATEHASH + CSFS + IK: the
+four TXIDs above) are confirmed on signet and that their raw bytes hash to the cited TXIDs.

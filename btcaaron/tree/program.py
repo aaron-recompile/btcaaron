@@ -199,6 +199,7 @@ class TaprootProgram:
 
     @property
     def address(self) -> str:
+        """Bech32m P2TR address of this program for its network."""
         return self._address
 
     @property
@@ -208,10 +209,12 @@ class TaprootProgram:
     
     @property
     def internal_key(self) -> str:
+        """x-only internal key (hex) before the Taproot tweak."""
         return self._internal_key.xonly
     
     @property
     def merkle_root(self) -> Optional[str]:
+        """Script-tree Merkle root (hex), or None for a key-path-only program."""
         mr = self._merkle_root
         return mr.hex() if isinstance(mr, bytes) else mr
 
@@ -238,14 +241,17 @@ class TaprootProgram:
 
     @property
     def leaves(self) -> List[str]:
+        """Leaf labels in tree order."""
         sorted_leaves = sorted(self._leaf_descriptors.values(), key=lambda x: x.index)
         return [leaf.label for leaf in sorted_leaves]
     
     @property
     def num_leaves(self) -> int:
+        """Number of script leaves (0 for a key-path-only program)."""
         return len(self._leaf_descriptors)
     
     def leaf(self, label_or_index: Union[str, int]) -> LeafDescriptor:
+        """Return the LeafDescriptor for a leaf label or index (KeyError if absent)."""
         if isinstance(label_or_index, int):
             if label_or_index not in self._leaf_by_index:
                 raise KeyError(f"No leaf at index {label_or_index}")
@@ -256,6 +262,7 @@ class TaprootProgram:
             return self._leaf_descriptors[label_or_index]
     
     def control_block(self, label_or_index: Union[str, int]) -> str:
+        """Control block (hex) proving the given leaf's membership in the tree (BIP 341)."""
         leaf = self.leaf(label_or_index)
         if getattr(self, '_use_tapmath', False):
             from . import tapmath
@@ -278,6 +285,7 @@ class TaprootProgram:
             return cb.to_hex()
     
     def spend(self, label_or_index: Union[str, int]) -> "SpendBuilder":
+        """Start a script-path spend of the given leaf; returns a SpendBuilder."""
         from ..spend.builder import SpendBuilder
         leaf = self.leaf(label_or_index)
         return SpendBuilder(program=self, leaf=leaf, is_keypath=False)
@@ -289,10 +297,12 @@ class TaprootProgram:
         return SpendBuilder(program=self, leaf=None, leaves=leaves, is_keypath=False)
     
     def keypath(self) -> "SpendBuilder":
+        """Start a key-path spend; returns a SpendBuilder."""
         from ..spend.builder import SpendBuilder
         return SpendBuilder(program=self, leaf=None, is_keypath=True)
     
     def visualize(self) -> str:
+        """ASCII drawing of the script tree with leaf labels."""
         if self.num_leaves == 0:
             return "TaprootProgram (key-path only, no scripts)"
         labels = self.leaves
@@ -319,6 +329,7 @@ class TaprootProgram:
         return f"TaprootProgram(leaves={self.leaves})"
     
     def explain(self):
+        """Structured explanation of the program (keys, leaves, scripts, address derivation)."""
         from ..explain.program import ProgramExplanation
         return ProgramExplanation(self)
     

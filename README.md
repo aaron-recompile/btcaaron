@@ -11,7 +11,7 @@ If you find btcaaron useful, a GitHub star is appreciated.
 
 ## Current Status
 
-**v0.2.3 (alpha preview)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
+**v0.3.0 (alpha)** — Core Taproot spend-path workflows are implemented and testnet/regtest-verified.  
 Current focus is release hardening: broader validation coverage, documentation alignment, and contributor testing feedback.
 
 ## Features
@@ -26,9 +26,9 @@ Production-tested on testnet with real transactions:
 - Broadcast to Blockstream / Mempool endpoints
 - Developer helpers (`WIFKey`, `quick_transfer`)
 
-### Available Now (v0.2.3 - Alpha Preview)
+### Available Now (v0.2.x–0.3.0)
 
-Testnet-verified with real transactions (23 tests, all passing):
+Testnet-verified with real transactions (244 automated tests, including BIP 341 and Bitcoin Inquisition reference vectors; CI runs them on Python 3.10–3.12):
 
 - Declarative Taproot tree builder (`.hashlock()`, `.multisig()`, `.timelock()`, `.checksig()`)
 - Script-path and key-path spend constructors
@@ -54,6 +54,13 @@ Testnet-verified with real transactions (23 tests, all passing):
 | `embit` | Descriptor/PSBT flows and hardware-wallet-oriented integrations | Descriptor-oriented, standard-policy paths |
 
 _Optional note_: `btcaaron` is designed as a pragmatic Taproot engineering layer on top of low-level primitives, prioritizing readability and reproducible testing workflows.
+
+## Documentation
+
+- API reference: [docs/API.md](docs/API.md)
+- Architecture: [DESIGN.md](DESIGN.md)
+- Bitcoin Inquisition templates: [INQUISITION.md](INQUISITION.md)
+- Changes: [CHANGELOG.md](CHANGELOG.md) · Contributing and support: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Requirements
 
@@ -86,7 +93,7 @@ python -m pip install -e .
 btcaaron-doctor
 ```
 
-## Quick Start (v0.2.3)
+## Quick Start (v0.3.0)
 
 *Taproot-native API — core features available now.*
 
@@ -176,7 +183,7 @@ python -m pytest tests/
 Run specific test suites:
 
 ```bash
-# v0.2.3 comprehensive tests (pytest)
+# v0.2+ comprehensive tests (pytest)
 python -m pytest tests/test_btcaaron_v02.py -v
 
 # v0.1.x example-based tests
@@ -222,7 +229,7 @@ See [DESIGN.md](./DESIGN.md) for architecture details and development roadmap.
   - default call blocks mainnet broadcast unless `allow_mainnet=True`
   - `dry_run=True` is available for no-side-effect routing checks
   - recommended smoke script: `python3 examples/core_test/scenarios/mainnet_readiness_smoke.py`
-- **v0.2.3 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
+- **v0.3.0 Status**: Core Taproot spend-path flows are implemented and testnet-verified; ongoing work focuses on hardening, PSBT, and documentation.
 
 ## Acknowledgments
 

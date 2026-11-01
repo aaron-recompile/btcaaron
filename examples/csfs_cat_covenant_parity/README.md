@@ -62,6 +62,13 @@ Together they recover `sha_outputs` (demo 1), `sha_prevouts` (demo 2), and exten
 - **Eltoo is CSFS+*CTV*, O(n).** Demo 3 reaches APO's eltoo *topology* via an O(n) delegation
   ladder with CTV settlement — not APO's constant-size rebinding primitive, and not via CAT.
 
+## Key-free verification
+
+`python examples/verify_onchain.py` checks, with no keys and no node, that every TXID above is
+confirmed and that its raw bytes hash to it. Claim-by-claim verifiers (witness contents, the
+hardcoded `sha_prevouts`, the co-spend rule) for the input-binding demo are in
+[sighash-prevout-binding](https://github.com/aaron-recompile/sighash-prevout-binding).
+
 ## Reproduce
 
 Demo 3 is runnable from this repo (`examples/eltoo/`, see its README). Demos 1–2 are verifiable

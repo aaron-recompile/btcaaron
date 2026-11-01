@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="btcaaron",
-    version="0.2.3",
+    version="0.3.0",
     description=(
         "Pragmatic Bitcoin Taproot toolkit: Legacy/SegWit/Taproot, PSBT, optional Signet workflows, "
         "and Bitcoin Inquisition opcode templates (OP_CAT, CSFS, CTV)."

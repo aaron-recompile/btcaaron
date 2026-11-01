@@ -33,6 +33,25 @@ Inspect transactions locally (e.g. with **btcrun**):
 btcrun inq trace <txid>
 ```
 
+## On-chain record (Inquisition signet)
+
+Produced with `rca_eltoo_chain.py --run` and the `--fund-apo-rebind` / `--spend-apo-rebind` steps of `rca_taptree_smoke.py`.
+
+| Step | TXID |
+|------|------|
+| Fund -> state v1 | [`386dbb6a...9c41`](https://mempool.space/signet/tx/386dbb6aa23fcc35a69d34e3c0f760b185482467abc936196d3def19d54a9c41) |
+| APO update v1 -> v2 | [`096e31cc...5601`](https://mempool.space/signet/tx/096e31ccbd8f5460b2730ec4f757ee1b01acf9dde3e3b8cb55fbb534fe195601) |
+| APO update v2 -> v3 | [`091309b7...d7f6`](https://mempool.space/signet/tx/091309b73e299436ff12fceda7e54e28c6f1817fdf3405bca3343ad15198d7f6) |
+| CTV settlement of v3 | [`13957f49...f9b7`](https://mempool.space/signet/tx/13957f49d01aa21ed2aa28df7aa78f357d51a2a2fbfb434af05fdc75ad0ff9b7) |
+| APO rebinding, spend A (signed) | [`03c0577c...f3a4`](https://mempool.space/signet/tx/03c0577c1d47da32804d098187644d0eee18b448aded2f427cd02193c070f3a4) |
+| APO rebinding, spend B (same witness, different UTXO) | [`46091190...1a43`](https://mempool.space/signet/tx/46091190c74d8fd4b39be67a2e945a19b021850e7f8d9e378f5eb11722ae1a43) |
+
+Key-free checks: `python examples/verify_onchain.py` (confirmation and TXID of every transaction above) and
+[`verify_onchain.py` in eltoo-apo-state-chain](https://github.com/aaron-recompile/eltoo-apo-state-chain)
+(claim-by-claim: witnesses, payout splits, the copied APO signature). Write-ups:
+[Delving /t/2413](https://delvingbitcoin.org/t/eltoo-state-chain-on-signet-three-rounds-six-transactions-apo-ctv/2413),
+[Delving /t/2411](https://delvingbitcoin.org/t/bip-118-signing-from-scratch-on-chain-rebinding-proof/2411).
+
 ## Files
 
 | File | Role |
