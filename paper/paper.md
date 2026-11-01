@@ -114,13 +114,28 @@ cross-node test results.
 
 # AI usage disclosure
 
-<!-- TODO(Aaron): confirm and complete. JOSS requires tools/models with versions, where
-they were used, the nature of use, and a statement that the author reviewed and
-validated all output and made the core design decisions. -->
-Generative AI tools (Anthropic Claude, via Claude Code) were used to assist with
-[code generation / refactoring / test scaffolding / documentation] and with drafting this
-paper. The author designed the API and the experiments, ran and verified every on-chain
-transaction, and reviewed, edited and validated all AI-assisted output.
+<!-- DRAFT for Aaron to correct. Evidence from git trailers: "Made-with: Cursor" on 5 commits
+(2026-03-22 to 2026-03-31: Inquisition templates, BIP-118 sighash, INQUISITION.md, Braidpool
+example); "Co-Authored-By: Claude" on 6 commits (Opus 4.6, 4.8, 5.5; 2026-03 to 2026-10:
+reproduction packages, BIP-446, LICENSE, JOSS prep). Earlier commits (2025-08 to 2026-02,
+including the TapTree/SpendBuilder core) carry no trailer — please state what you used there.
+Remove anything that is not accurate; add OpenAI Codex/ChatGPT if you used them. -->
+
+Generative AI coding assistants were used during development: Cursor (agent mode, with the
+models it provided at the time) and Anthropic Claude via Claude Code (Claude Opus 4.6, 4.8 and
+5.5). They were used for code generation and refactoring of library modules (including the
+Bitcoin Inquisition script templates and the BIP 118 and BIP 446 hash implementations), test
+scaffolding, documentation (README, `INQUISITION.md`, example READMEs, the generated API
+reference) and for drafting and copy-editing this paper. AI tools were not used to decide
+the design of the API, the choice of experiments, or the correctness criteria.
+
+The author designed the API (the declarative `TapTree` / `TaprootProgram` / `SpendBuilder`
+split and the exposure of signature-message preimages), defined every on-chain experiment,
+and validated the code against external ground truth rather than against AI output: the
+BIP test vectors, the Bitcoin Inquisition reference implementation, and transactions that
+were broadcast and confirmed on testnet and Inquisition signet, whose TXIDs are reproduced by
+the test suite. The author reviewed, edited and takes responsibility for all AI-assisted code,
+documentation and text.
 
 # Acknowledgements
 
