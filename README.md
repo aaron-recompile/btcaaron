@@ -28,7 +28,7 @@ Production-tested on testnet with real transactions:
 
 ### Available Now (v0.2.3 - Alpha Preview)
 
-Testnet-verified with real transactions (23 tests, all passing):
+Testnet-verified with real transactions (144 automated tests; CI runs them on Python 3.10–3.12):
 
 - Declarative Taproot tree builder (`.hashlock()`, `.multisig()`, `.timelock()`, `.checksig()`)
 - Script-path and key-path spend constructors
@@ -54,6 +54,13 @@ Testnet-verified with real transactions (23 tests, all passing):
 | `embit` | Descriptor/PSBT flows and hardware-wallet-oriented integrations | Descriptor-oriented, standard-policy paths |
 
 _Optional note_: `btcaaron` is designed as a pragmatic Taproot engineering layer on top of low-level primitives, prioritizing readability and reproducible testing workflows.
+
+## Documentation
+
+- API reference: [docs/API.md](docs/API.md)
+- Architecture: [DESIGN.md](DESIGN.md)
+- Bitcoin Inquisition templates: [INQUISITION.md](INQUISITION.md)
+- Changes: [CHANGELOG.md](CHANGELOG.md) · Contributing and support: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Requirements
 
