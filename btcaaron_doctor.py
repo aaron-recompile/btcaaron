@@ -61,7 +61,7 @@ def main() -> int:
             print(f"dep {dist_name}: MISSING (need >={lo},<{hi})")
             dep_fail = True
 
-    modules = ["bitcoinutils", "requests", "btcaaron"]
+    modules = ["bitcoinutils", "requests", "bip32", "base58", "btcaaron"]
     for module_name in modules:
         found = importlib.util.find_spec(module_name) is not None
         print(f"module {module_name}: {'FOUND' if found else 'MISSING'}")

@@ -35,6 +35,7 @@ setup(
         "ctv",
     ],
     packages=find_packages(),
+    py_modules=["btcaaron_doctor"],
     install_requires=[
          "requests>=2.25.0,<3.0.0",
          "bitcoin-utils>=0.7.3,<0.8.0",

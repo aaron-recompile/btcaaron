@@ -215,8 +215,30 @@ class TaprootProgram:
     @property
     def merkle_root(self) -> Optional[str]:
         """Script-tree Merkle root (hex), or None for a key-path-only program."""
-        mr = self._merkle_root
-        return mr.hex() if isinstance(mr, bytes) else mr
+        if self.num_leaves == 0:
+            return None
+        return self.merkle_root_bytes().hex()
+
+    def _tree_shape(self):
+        """
+        Leaf indices nested the way the address commits to them.
+
+        The two build paths pair leaves differently when the count is not a
+        power of two: the bitcoin-utils path splits the list in half
+        recursively, the tapmath path (any RawScript leaf) pairs neighbours
+        bottom-up. Both are valid BIP 341 trees; this returns the one actually
+        used, so the root, control blocks and drawing all agree.
+        """
+        idx = list(range(self.num_leaves))
+        if not idx:
+            return None
+        if not getattr(self, '_use_tapmath', False):
+            return self._build_balanced_tree(idx)
+        level = idx
+        while len(level) > 1:
+            level = [[level[i], level[i + 1]] if i + 1 < len(level) else level[i]
+                     for i in range(0, len(level), 2)]
+        return level[0]
 
     def merkle_root_bytes(self) -> bytes:
         """
@@ -235,9 +257,14 @@ class TaprootProgram:
                 return s.to_bytes()
             return bytes.fromhex(s.to_hex())
 
-        scripts_flat = self._scripts
-        leaf_hashes = [tapmath.tapleaf_hash(_script_to_bytes(s)) for s in scripts_flat]
-        return tapmath.compute_merkle_root(leaf_hashes)
+        leaf_hashes = [tapmath.tapleaf_hash(_script_to_bytes(s)) for s in self._scripts]
+
+        def _hash(node):
+            if isinstance(node, int):
+                return leaf_hashes[node]
+            return tapmath.tapbranch_hash(_hash(node[0]), _hash(node[1]))
+
+        return _hash(self._tree_shape())
 
     @property
     def leaves(self) -> List[str]:
@@ -306,27 +333,23 @@ class TaprootProgram:
         if self.num_leaves == 0:
             return "TaprootProgram (key-path only, no scripts)"
         labels = self.leaves
-        if self.num_leaves == 1:
-            return f"""
-  Taproot
-    |
-[{labels[0]}]
-"""
-        if self.num_leaves == 2:
-            return f"""
-    Merkle Root
-   /            \\
-[{labels[0]}]        [{labels[1]}]
-"""
-        if self.num_leaves == 4:
-            return f"""
-        Merkle Root
-       /            \\
-   Branch0        Branch1
-   /      \\       /      \\
-[{labels[0]}]  [{labels[1]}] [{labels[2]}]  [{labels[3]}]
-"""
-        return f"TaprootProgram(leaves={self.leaves})"
+
+        def _lines(node, prefix):
+            out = []
+            for i, child in enumerate(node):
+                last = i == len(node) - 1
+                head = prefix + ("└── " if last else "├── ")
+                if isinstance(child, int):
+                    out.append(f"{head}[{labels[child]}]")
+                else:
+                    out.append(f"{head}Branch")
+                    out.extend(_lines(child, prefix + ("    " if last else "│   ")))
+            return out
+
+        shape = self._tree_shape()
+        if isinstance(shape, int):
+            return f"Merkle Root (= leaf hash)\n└── [{labels[shape]}]"
+        return "\n".join(["Merkle Root"] + _lines(shape, ""))
     
     def explain(self):
         """Structured explanation of the program (keys, leaves, scripts, address derivation)."""

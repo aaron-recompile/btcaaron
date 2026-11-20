@@ -28,7 +28,7 @@ Production-tested on testnet with real transactions:
 
 ### Available Now (v0.2.x–0.3.0)
 
-Testnet-verified with real transactions (244 automated tests, including BIP 341 and Bitcoin Inquisition reference vectors; CI runs them on Python 3.10–3.12):
+Testnet-verified with real transactions (268 automated tests, including BIP 341 and Bitcoin Inquisition reference vectors; CI runs them on Python 3.10–3.12):
 
 - Declarative Taproot tree builder (`.hashlock()`, `.multisig()`, `.timelock()`, `.checksig()`)
 - Script-path and key-path spend constructors
@@ -67,6 +67,10 @@ _Optional note_: `btcaaron` is designed as a pragmatic Taproot engineering layer
 - Dependencies:
   - `requests>=2.25.0,<3.0.0`
   - `bitcoin-utils>=0.7.3,<0.8.0`
+  - `bip32>=4.0.0`
+  - `base58>=2.1.1`
+
+  (`setup.py` is the authoritative list.)
 
 ## Installation
 

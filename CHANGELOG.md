@@ -2,6 +2,14 @@
 
 All notable changes to btcaaron. Versions follow the releases published on PyPI.
 
+## Unreleased
+
+- `TaprootProgram.merkle_root_bytes()` (and so `PSBT_IN_TAP_MERKLE_ROOT`) now hashes the tree the address actually commits to. For 3, 5, 6, 7 … leaves without a `RawScript` leaf it used to pair leaves bottom-up while the address used the recursive half split, so the PSBT root did not match the output key. Addresses and control blocks are unchanged.
+- `TaprootProgram.merkle_root` returns the root for every program with leaves (was `None` unless a `RawScript` leaf was present).
+- `visualize()` draws any leaf count from the real tree shape (was fixed art for 1, 2 and 4 leaves).
+- `btcaaron_doctor` is now included in the distribution, so the `btcaaron-doctor` entry point works (#12). It also checks `bip32` and `base58`.
+- README lists all four runtime dependencies (#11).
+
 ## 0.3.0 — 2026-11-01
 
 - BIP 446 `OP_TEMPLATEHASH` template hash (`btcaaron.templatehash`), cross-checked against Bitcoin Inquisition v29.4; TEMPLATEHASH + CSFS + IK eltoo example.
